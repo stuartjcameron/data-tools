@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<country-codes generated="2019-03-04T01:07:24.871047+01:00">
+   <country id="BR" version="62">
+      <alpha-2-code>BR</alpha-2-code>
+      <alpha-3-code>BRA</alpha-3-code>
+      <numeric-code>076</numeric-code>
+      <independent>YES</independent>
+      <status>officially-assigned</status>
+      <full-name lang3code="fra" xml:lang="fr">la République fédérative du Brésil</full-name>
+      <full-name lang3code="eng" xml:lang="en">the Federative Republic of Brazil</full-name>
+      <short-name lang3code="por" xml:lang="pt">Brasil (o)</short-name>
+      <short-name lang3code="fra" xml:lang="fr">Brésil (le)</short-name>
+      <short-name lang3code="eng" xml:lang="en">Brazil</short-name>
+      <short-name-upper-case lang3code="por" xml:lang="pt">Brasil (o)</short-name-upper-case>
+      <short-name-upper-case lang3code="fra" xml:lang="fr">BRÉSIL</short-name-upper-case>
+      <short-name-upper-case lang3code="eng" xml:lang="en">BRAZIL</short-name-upper-case>
+      <language>
+         <language-alpha-2-code>pt</language-alpha-2-code>
+         <language-alpha-3-code>por</language-alpha-3-code>
+         <language-is-administrative>YES</language-is-administrative>
+      </language>
+      <language>
+         <language-alpha-2-code>fr</language-alpha-2-code>
+         <language-alpha-3-code>fra</language-alpha-3-code>
+         <language-is-administrative>NO</language-is-administrative>
+      </language>
+      <language>
+         <language-alpha-2-code>en</language-alpha-2-code>
+         <language-alpha-3-code>eng</language-alpha-3-code>
+         <language-is-administrative>NO</language-is-administrative>
+      </language>
+      <territory id="1060">
+         <territory-name lang3code="fra" xml:lang="fr">l'Île Fernando de Noronha</territory-name>
+         <territory-name lang3code="eng" xml:lang="en">Fernando de Noronha Island</territory-name>
+      </territory>
+      <territory id="1123">
+         <territory-name lang3code="fra" xml:lang="fr">les Îles Martim Vaz</territory-name>
+         <territory-name lang3code="eng" xml:lang="en">Martim Vaz Islands</territory-name>
+      </territory>
+      <territory id="1212">
+         <territory-name lang3code="fra" xml:lang="fr">l'Île de Trindade</territory-name>
+         <territory-name lang3code="eng" xml:lang="en">Trindade Island</territory-name>
+      </territory>
+      <category id="193">
+         <category-name lang3code="fra" xml:lang="fr">État</category-name>
+         <category-name lang3code="eng" xml:lang="en">state</category-name>
+         <category-name lang3code="por" xml:lang="pt">estado</category-name>
+         <category-name-plural lang3code="eng" xml:lang="en">states</category-name-plural>
+      </category>
+      <category id="403">
+         <category-name lang3code="fra" xml:lang="fr">district fédéral</category-name>
+         <category-name lang3code="eng" xml:lang="en">federal district</category-name>
+         <category-name lang3code="por" xml:lang="pt">distrito federal</category-name>
+      </category>
+      <subdivision category-id="193">
+         <subdivision-code>BR-AC</subdivision-code>
+         <subdivision-locale lang3code="por" xml:lang="pt">
+            <subdivision-locale-name>Acre</subdivision-locale-name>
+         </subdivision-locale>
+      </subdivision>
+      <subdivision category-id="193">
+         <subdivision-code>BR-AL</subdivision-code>
+         <subdivision-locale lang3code="por" xml:lang="pt">
+            <subdivision-locale-name>Alagoas</subdivision-locale-name>
+         </subdivision-locale>
+      </subdivision>
+      <subdivision category-id="193">
+         <subdivision-code>BR-AM</subdivision-code>
+         <subdivision-locale lang3code="por" xml:lang="pt">
+            <subdivision-locale-name>Amazonas</subdivision-locale-name>
+         </subdivision-locale>
+      </subdivision>
+      <subdivision category-id="193">
+         <subdivision-code>BR-AP</subdivision-code>
+         <subdivision-locale lang3code="por" xml:lang="pt">
+            <subdivision-locale-name>Amapá</subdivision-locale-name>
+         </subdivision-locale>
+      </subdivision>
+      <subdivision category-id="193">
+         <subdivision-code>BR-BA</subdivision-code>
+         <subdivision-locale lang3code="por" xml:lang="pt">
+            <subdivision-locale-name>Bahia</subdivision-locale-name>
+         </subdivision-locale>
+      </subdivision>
+      <subdivision category-id="193">
+         <subdivision-code>BR-CE</subdivision-code>
+         <subdivision-locale lang3code="por" xml:lang="pt">
+            <subdivision-locale-name>Ceará</subdivision-locale-name>
+         </subdivision-locale>
+      </subdivision>
+      <subdivision category-id="193">
+         <subdivision-code>BR-ES</subdivision-code>
+         <subdivision-locale lang3code="por" xml:lang="pt">
+            <subdivision-locale-name>Espírito Santo</subdivision-locale-name>
+         </subdivision-locale>
+      </subdivision>
+      <subdivision category-id="193">
+         <subdivision-code>BR-GO</subdivision-code>
+         <subdivision-locale lang3code="por" xml:lang="pt">
+            <subdivision-locale-name>Goiás</subdivision-locale-name>
+         </subdivision-locale>
+      </subdivision>
+      <subdivision category-id="193">
+         <subdivision-code>BR-MA</subdivision-code>
+         <subdivision-locale lang3code="por" xml:lang="pt">
+            <subdivision-locale-name>Maranhão</subdivision-locale-name>
+         </subdivision-locale>
+      </subdivision>
+      <subdivision category-id="193">
+         <subdivision-code>BR-MG</subdivision-code>
+         <subdivision-locale lang3code="por" xml:lang="pt">
+            <subdivision-locale-name>Minas Gerais</subdivision-locale-name>
+         </subdivision-locale>
+      </subdivision>
+      <subdivision category-id="193">
+         <subdivision-code>BR-MS</subdivision-code>
+         <subdivision-locale lang3code="por" xml:lang="pt">
+            <subdivision-locale-name>Mato Grosso do Sul</subdivision-locale-name>
+         </subdivision-locale>
+      </subdivision>
+      <subdivision category-id="193">
+         <subdivision-code>BR-MT</subdivision-code>
+         <subdivision-locale lang3code="por" xml:lang="pt">
+            <subdivision-locale-name>Mato Grosso</subdivision-locale-name>
+         </subdivision-locale>
+      </subdivision>
+      <subdivision category-id="193">
+         <subdivision-code>BR-PA</subdivision-code>
+         <subdivision-locale lang3code="por" xml:lang="pt">
+            <subdivision-locale-name>Pará</subdivision-locale-name>
+         </subdivision-locale>
+      </subdivision>
+      <subdivision category-id="193">
+         <subdivision-code>BR-PB</subdivision-code>
+         <subdivision-locale lang3code="por" xml:lang="pt">
+            <subdivision-locale-name>Paraíba</subdivision-locale-name>
+         </subdivision-locale>
+      </subdivision>
+      <subdivision category-id="193">
+         <subdivision-code>BR-PE</subdivision-code>
+         <subdivision-locale lang3code="por" xml:lang="pt">
+            <subdivision-locale-name>Pernambuco</subdivision-locale-name>
+         </subdivision-locale>
+      </subdivision>
+      <subdivision category-id="193">
+         <subdivision-code>BR-PI</subdivision-code>
+         <subdivision-locale lang3code="por" xml:lang="pt">
+            <subdivision-locale-name>Piauí</subdivision-locale-name>
+         </subdivision-locale>
+      </subdivision>
+      <subdivision category-id="193">
+         <subdivision-code>BR-PR</subdivision-code>
+         <subdivision-locale lang3code="por" xml:lang="pt">
+            <subdivision-locale-name>Paraná</subdivision-locale-name>
+         </subdivision-locale>
+      </subdivision>
+      <subdivision category-id="193">
+         <subdivision-code>BR-RJ</subdivision-code>
+         <subdivision-locale lang3code="por" xml:lang="pt">
+            <subdivision-locale-name>Rio de Janeiro</subdivision-locale-name>
+         </subdivision-locale>
+      </subdivision>
+      <subdivision category-id="193">
+         <subdivision-code>BR-RN</subdivision-code>
+         <subdivision-locale lang3code="por" xml:lang="pt">
+            <subdivision-locale-name>Rio Grande do Norte</subdivision-locale-name>
+         </subdivision-locale>
+      </subdivision>
+      <subdivision category-id="193">
+         <subdivision-code>BR-RO</subdivision-code>
+         <subdivision-locale lang3code="por" xml:lang="pt">
+            <subdivision-locale-name>Rondônia</subdivision-locale-name>
+         </subdivision-locale>
+      </subdivision>
+      <subdivision category-id="193">
+         <subdivision-code>BR-RR</subdivision-code>
+         <subdivision-locale lang3code="por" xml:lang="pt">
+            <subdivision-locale-name>Roraima</subdivision-locale-name>
+         </subdivision-locale>
+      </subdivision>
+      <subdivision category-id="193">
+         <subdivision-code>BR-RS</subdivision-code>
+         <subdivision-locale lang3code="por" xml:lang="pt">
+            <subdivision-locale-name>Rio Grande do Sul</subdivision-locale-name>
+         </subdivision-locale>
+      </subdivision>
+      <subdivision category-id="193">
+         <subdivision-code>BR-SC</subdivision-code>
+         <subdivision-locale lang3code="por" xml:lang="pt">
+            <subdivision-locale-name>Santa Catarina</subdivision-locale-name>
+         </subdivision-locale>
+      </subdivision>
+      <subdivision category-id="193">
+         <subdivision-code>BR-SE</subdivision-code>
+         <subdivision-locale lang3code="por" xml:lang="pt">
+            <subdivision-locale-name>Sergipe</subdivision-locale-name>
+         </subdivision-locale>
+      </subdivision>
+      <subdivision category-id="193">
+         <subdivision-code>BR-SP</subdivision-code>
+         <subdivision-locale lang3code="por" xml:lang="pt">
+            <subdivision-locale-name>São Paulo</subdivision-locale-name>
+         </subdivision-locale>
+      </subdivision>
+      <subdivision category-id="193">
+         <subdivision-code>BR-TO</subdivision-code>
+         <subdivision-locale lang3code="por" xml:lang="pt">
+            <subdivision-locale-name>Tocantins</subdivision-locale-name>
+         </subdivision-locale>
+      </subdivision>
+      <subdivision category-id="403">
+         <subdivision-code>BR-DF</subdivision-code>
+         <subdivision-locale lang3code="por" xml:lang="pt">
+            <subdivision-locale-name>Distrito Federal</subdivision-locale-name>
+         </subdivision-locale>
+      </subdivision>
+      <list-source>Brazilian EDIFACT Board, 1995-06-19; IGN 1989 update BET 1996; http://www.ibge.gov.br/estadosat/</list-source>
+      <code-source>VARIG + ISO/TC 46/WG 2 Secretariat (*)</code-source>
+      <remark-part-1 lang3code="fra" xml:lang="fr">Y compris: l'Île Fernando de Noronha, les Îles Martim Vaz, l'Île de Trindade.</remark-part-1>
+      <remark-part-1 lang3code="eng" xml:lang="en">Includes: Fernando de Noronha Island, Martim Vaz Islands, Trindade Island.</remark-part-1>
+      <change>
+         <change-date>2016-11-15</change-date>
+         <change-affected-part>3166-2</change-affected-part>
+         <change-type>Update</change-type>
+         <change-description xml:lang="en">Deletion of asterisk from state BR-TO; update list source</change-description>
+         <change-description xml:lang="fr">Suppression de l’astérisque de État BR-TO; mise à jour de la Liste Source</change-description>
+      </change>
+   </country>
+</country-codes>

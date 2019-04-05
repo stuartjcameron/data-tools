@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 """
 A database of country names with variants used by different international
-organisations. Includes a country class 
+organisations. Includes a country class
 
 Data will be stored in a big JSON file containing:
-    1. a dictionary with ISO2 codes as keys and a list of the other names for 
+    1. a dictionary with ISO2 codes as keys and a list of the other names for
     each country
     2. metadata including the ordering of the other names, agency and type
     of each other name
-     
+
 Structure of the main database:
 {"name-lists": [ {"name": "ISO3"}, {"name": "def-short", "full-name": "Default short names",
                 "link": "..."}, {"name": "wb-short", "agency": "World Bank", "link": "..."}],
@@ -20,10 +20,10 @@ Structure of the main database:
 This module will provide functions for managing this database, including:
     a function to add a new name list, based on a CSV and metadata. This will
     edit the JSON. The input CSV does not need to be complete.
-    
+
     a function that reads the main JSON database into memory and allows it
     to be accessed via Country and CountryNameList
-    
+
     various functions to query this data and re-output in CSV or JSON.
 
 See https://stackoverflow.com/questions/4060221/how-to-reliably-open-a-file-in-the-same-directory-as-a-python-script
@@ -33,11 +33,39 @@ Then the JSON file will be stored on Git or somewhere so it can be edited
 with a main 'official' version that is used by default...
 
 Also consider: want to be able to use this as the beginning of a larger country metadatabase
-e.g. if we wanted to store data on which GPE country group they belong to, or which WB income group. This would be 
+e.g. if we wanted to store data on which GPE country group they belong to, or which WB income group. This would be
 better stored as a 'column' than as separate lists of countries.
 
 Explicitly allow categories to be added but discourage actual data (e.g. GDP)! The DB will then allow multiple
 ways of searching by category - i.e. list all countries in a category or tabulate with categories as a column.
+
+What about languages?! Ideally want to be able to support different languages
+in the DB format. But add this later - assume monolingual for now.
+
+Also consider sub-national entities that will sometimes be classified along with
+national entities, e.g. Zimbabwe, mainland Tanzania. Ideally want to be able
+to include these in a list as special cases.
+
+Consider an alternate structure like this:
+wb_full_names would consist of:
+    {"name": "wb-long", "agency": "World Bank", "link": "...",
+    "key": "ISO2",          // this could be ISO2 by default
+    "countries": {"BE": "Belgium", ...},
+    "special": [{links: [{"link": "UNESCO-special", "key": "TZ-ZA"}], key: "TZ-ZA", "name": "Zanzibar"}]}
+    
+The special cases have keys which will not be expected necessarily to link up with
+other databases
+
+Note Humanitarian Data Exchange has done a lot of this already!
+Try to use their module and perhaps extend.
+
+May want to create country-like entities for special cases?
+
+2019-03-05 Decision  ... stop working on this and use HDX for now.
+Can extend it with additional country name dictionaries if useful later; and 
+also extned it with sub-national entities that may be analysed alongside 
+countries.
+
 
 
 Created on Wed Sep  5 22:56:43 2018
@@ -60,6 +88,7 @@ class CountryNameList(object):
         name list
     """
     instances = []
+
     def __init__(self, name, filename, name_type, full_name=None,
                  agency=None, link=None,
                  valid_from=None, valid_to=None):
@@ -68,11 +97,13 @@ class CountryNameList(object):
         if name_type in VALID_NAME_TYPES:
             self.name_type = name_type
         else:
-            raise ValueError("Name type must be one of: {}".format(", ".join(VALID_NAME_TYPES)))
+            name_types = ", ".join(VALID_NAME_TYPES)
+            raise ValueError("Name type must be one of: {}".format(name_types))
         if agency is None or agency in VALID_AGENCIES:
             self.agency = agency
         else:
-            raise ValueError("Agency must be one of: {}".format(", ".join(VALID_AGENCIES)))
+            agencies = ", ".join(VALID_AGENCIES)
+            raise ValueError("Agency must be one of: {}".format(agencies))
         self.name = name
         self.full_name = full_name
         self.link = link
@@ -81,14 +112,14 @@ class CountryNameList(object):
         self.added = datetime.datetime.now()
         self._get_data_from_csv(filename)
         self.instances.append(self)
-        
+
     def _get_data_from_csv(self, filename):
         """ Get new country list from a CSV, store it and save the database """
         with open(filename, "r") as f:
             pass
-        
+
         Country._save()
-    
+
 
 class Country(object):
     """
@@ -99,16 +130,16 @@ class Country(object):
         'short_names' - contains all short names (e.g. PR Tanzania?)
         'long_names' - contains all long names (e.g. People's Republic...)
         'notes' - any names e.g. on changes to country over time
-        
+
         Also attach the 2-letter and 3-letter codes to the class e.g.
         Country.BE will return Belgium
-    
+
     """
     instances = []
-    
+
     def __init__(self, name_dict):
         pass
-    
+
     def has_word(self, w):
         """ Returns true if any of the country's names contain w (case-insensitive) """
         w = w.lower().strip()
@@ -116,7 +147,7 @@ class Country(object):
             if w in name.lower():
                 return True
         return False
-    
+
     def has_name(self, s):
         """ Whether s matches one of the country's names. Case and space insensitive """
         s = s.lower().strip()
@@ -124,39 +155,39 @@ class Country(object):
             if s == name.lower():
                 return True
         return False
-        
+
     def __eq__(self, item):
         """ Returns true if item is the same country or a string that matches one
         of this country's names """
         if type(item) == type(self):
             return self is item
-        
+
         return self.has_name(item)
-            
+
     @classmethod
     def filt(cls, func):
         return filter(func, cls.instances)
-    
+
     @classmethod
     def first(cls, func):
         for country in cls.instances:
             if func(country):
                 return country
-        
+
     @classmethod
     def with_word(cls, w):
         """ Return the first country object that contains w """
         return cls.first(lambda c: c.has_word(w.lower()))
-        
+
     @classmethod
     def lookup(cls, item):
         """ Return the country object equal to item """
         return cls.first(lambda c: c == item)
-        
+
     @classmethod
     def _save(cls, filename=None):
         """ Save the whole database including metadata """
-        if filename == None:
+        if filename is None:
             filename = os.path.join(_location, "countries.json")
         with open(filename, "w") as f:
             pass
@@ -164,19 +195,19 @@ class Country(object):
     @classmethod
     def load(cls, filename=None):
         """ Load all country data from the file """
-        if filename == None:
+        if filename is None:
             filename = os.path.join(_location, "countries.json")
         with open(filename, "r") as f:
             pass
             # first get the name list info, then the country info...
-            
+
+
+
+
 Country.load()
-    
+
 class CountryGroup(object):
     def __init__(self, list_of_countries):
         pass
 
-
-                
-        
-
+print("I did a my countries")
