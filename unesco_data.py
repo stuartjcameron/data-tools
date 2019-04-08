@@ -60,31 +60,12 @@ from urllib.parse import urljoin
 from string import Formatter
 from os import path
 import json
+import pandas as pd
 
 #working_dir = "C:/Users/scameron/Dropbox (Personal)/Py"
 #with open(path.join(working_dir, "country_2letter_codes.json"), "r") as f:
 #    all_codes = json.load(f)
 
-def country_lookup(search, first_word=False, any_word=False):
-    table = {d["Name"].lower(): d["Code"] for d in country_codes}
-    def search_word(w):
-        w = w.lower()
-        for name, code in table.items():
-            if w in name:
-                return code
-    
-    r = search_word(search)
-    if r is not None:
-        return r
-    if any_word:
-        for w in search.split():
-            r = search_word(w)
-            if r is not None:
-                return r
-    elif first_word:
-        r = search_word(search.split()[0])
-        if r is not None:
-            return r
                 
         
 def get_country_info_fuzzy(s):
@@ -120,11 +101,6 @@ eligible_pacific_islands_string = """Federated States of Micronesia;Kiribati;Mar
 
 gpe_country_names = gpe_country_string.split(";") + eligible_pacific_islands_string.split(";")
 
-def prop_list(list_or_dict, key):
-    L = list_or_dict
-    if type(L) is dict:
-        L = list_or_dict.values()
-    return [item[key] for item in L]
 
 def country_dict(names):
     """ For a list of country names, get full information about them and return
@@ -163,7 +139,7 @@ defaults = {
         }
     
 templates = {
-        "data": "data/UNESCO,EDU_NON_FINANCE,2.0/{filters}",
+        "data": "data/UNESCO,EDU_NON_FINANCE,3.0/{filters}",
         "dataflow": "dataflow/UNESCO/EDU_NON_FINANCE/latest"
         }
 
@@ -195,7 +171,8 @@ def get_json(query_type, **kwargs):
 # e.g. https://api.uis.unesco.org/sdmx/data/UNESCO,EDU_NON_FINANCE,2.0/OFST+ROFST+ROFST_PHH.PT+PER.L1+L2._T....._Z..._T.........?format=sdmx-json&startPeriod=2012&endPeriod=2017&locale=en&subscription-key=8be270194d6444189bdde1a7b2666911
 # (but this query is too large to return! Need to set countries)
 # https://api.uis.unesco.org/sdmx/data/UNESCO,EDU_NON_FINANCE,2.0/OFST+ROFST+ROFST_PHH.PT+PER.L1+L2._T....._Z..._T.........AIMS_EAS_PAC?format=sdmx-json&startPeriod=2012&endPeriod=2017&locale=en&subscription-key=8be270194d6444189bdde1a7b2666911
-dimension_ids = [
+
+dimension_ids_v2 = [
  'STAT_UNIT',
  'UNIT_MEASURE',
  'EDU_LEVEL',
@@ -219,7 +196,38 @@ dimension_ids = [
  'REF_AREA',
  'TIME_PERIOD'] 
 
+dimension_ids = [
+       "STAT_UNIT",
+       "UNIT_MEASURE",
+       "EDU_LEVEL",
+       "EDU_CAT",
+       "SEX",
+       "AGE",
+       "GRADE",
+       "SECTOR_EDU",
+       "EDU_ATTAIN",
+       "WEALTH_QUINTILE",
+       "LOCATION",
+       "EDU_TYPE",
+       "EDU_FIELD",
+       "SUBJECT",
+       "INFRASTR",
+       "SE_BKGRD",
+       "TEACH_EXPERIENCE",
+       "CONTRACT_TYPE",
+       "COUNTRY_ORIGIN",
+       "REGION_DEST",
+       "IMM_STATUS",
+       "REF_AREA",
+       "TIME_PERIOD"
+        ]
+
 # note, obtained this by querying data_structure - see below.
+# got the v3 structure from the query builder https://api.uis.unesco.org/sdmx/dataflow/UNESCO/EDU_NON_FINANCE/3/?format=sdmx-2.1&detail=full&references=all&locale=all&subscription-key=8be270194d6444189bdde1a7b2666911
+# it is the same but with the addition of IMM_STATUS; also the return structure
+# probably differs
+
+
 
 def make_filters(**kwargs):
     r = []
@@ -271,14 +279,48 @@ for country in country_codes:
     
     #dataflow = get_json("dataflow")
 nera_bd=get_data(stat_unit="NERA",
-         ref_area="BD",
+         ref_area=["BD", "UG"],
+         unit_measure="PT",
          start_period=2012,
-         end_period=2012)
+         end_period=2016)
 nera_bd1=get_data(stat_unit="NERA",
-         edu_level="L1",
-         ref_area="BD",
-         start_period=2012,
-         end_period=2012)
+         edu_level="L1", unit_measure="PT",
+         ref_area="BD")
+
+def simplify_sdmx(message, hide_na=True, hide_total=True):
+    """ Convert an SDMX message in to a more human-readable list of dicts containing
+    dimensions and values 
+    TODO: set na or default values for all fields:
+        'AGE': 'SCH_AGE_GROUP' (for NERA - but different elsewhere??)
+        'SECTOR_EDU': 'INST_T'
+        'COUNTRY_ORIGIN': 'W00'
+        'REGION_DEST': 'W00'
+    """
+    obs = message["dataSets"][0]["observations"]
+    dimensions = message["structure"]["dimensions"]["observation"]
+    dimensions = [(d["id"], d["values"]) for d in dimensions]
+    attributes = message["structure"]["attributes"]["observation"]
+    attributes = [(d["id"], d["values"]) for d in attributes]
+    r = []
+    for k, v in obs.items():
+        d = {"value": v[0]}
+        for dimension_value, (id_, values) in zip(k.split(":"), dimensions):
+            dim_id = values[int(dimension_value)]["id"]
+            if not((hide_na and dim_id == "_Z") 
+                    or (hide_total and dim_id == "_T")):
+                d[id_] = dim_id
+        for attribute_value, (id_, values) in zip(v[1:], attributes):
+            d[id_] = values[attribute_value]["name"]
+        r.append(d)
+    return r
+            
+        
+
+obs = nera_bd["dataSets"][0]["observations"]
+dimensions = nera_bd["structure"]["dimensions"]["observation"]
+attributes = nera_bd["structure"]["attributes"]["observation"]
+simp = simplify_sdmx(nera_bd)
+df = pd.DataFrame(simp)
 
 #data_structure = dataflow["DataStructure"][0]
 #dimensions = data_structure["dimensionList"]["dimensions"]
@@ -295,6 +337,13 @@ all_data["BD"]["structure"]["dimensions"]["observation"][21] provides the time p
 (You would have to search for a dict with id "TIME_PERIOD"! and the period
 is provided as a list of dicts...
 
+Again using v3, looking at structure of nera_bd:
+    nera_bd["dataSets"][0][]["observations"]['0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0': ['64.41903', 0, 0, 0, 0], '0:1:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0': ['1.19813', 0, 0, 0, 0], '0:0:0:0:1:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0': ['70.35932', 0, 0, 0, 0], '0:0:0:0:2:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0'] = ['58.72436', 0, 0, 0, 0]
+    and there are 4 other observations - referring to different levels presumably
+    
+    nera_bd1 only returns an error
+
+
 Data from URI using v3:
 Going from specific to general - this is the query for Bangladesh primary net
 attendance rate in 2017-2018 - all
@@ -309,12 +358,47 @@ and
 each contain the relevant list of 5 values
 
 
-Presumably v3 has different dimensions. I cannot make the query still work 
-just by changing the version number.
+Framework for simplifying...
+Each value will correspond to 3 dimensions:
+    Country
+    Year
+    'Indicator' (everything else)
+    
+Everything else will be a dict so that it is easy to interrogate alternate
+versions of the same indicator
+
+Develop shorthands for common indicators which can be modified by adding
+dimensions
+e.g. primary-aner => NERA.PT.L1.SCH_AGE_GROUP.INST_T...
+ primary-aner+male => the male version
+ primary-aner+gpi => the GPI version
+ 
+ Each addition causes a substitution in one or more dimensions.
+ 
+ Make these in a CSV sheet. (Is it possible to get a complete listing of those for
+ which data is available??)
+ 
+ However I want to ensure that the shorthands all refer to an actual dimension.
+ So aner by itself would not exist (because we don't have a combined ANER).
+ But oosc by itself might exist.
+ 
+ I also want to be able to pass incomplete queries, e.g. "NERA-L1". It will set non-determined values
+ to sensible defaults to the extent possible. But note that some dimensions like
+ age will differ according to the indicator. Would like to be able to query them
+ without specifying. If all return values have the same dimensions then they can be returned
+ as a single 'indicator'; if not then as multiple indicators.
+ 
+The return message will have one or more indicators. Within each indicator provide a dict of
+{country_id: [list of values], country_id2: [list of values], start_period: 2012, end_period: 2016,
+     unit_mult: 'Units', obs_status: 'Normal', freq: 'Annual', decimals: 'Five', 
+     exceptions: {dict of dicts of dicts of any cases where the attributes are not the same}}
+
+An example of an exceptions dict could be {BD: {1990: {obs_status: {'Not normal'}}}} to show
+that the observation status was not normal in Bangladesh in 1990.
 
 
 
 
-
-
+ 
+ 
 """
