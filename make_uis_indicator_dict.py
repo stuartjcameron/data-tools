@@ -7,14 +7,17 @@ Script that takes the UIS data dictionary (Students and Teachers), and adds
 
 It then saves this dictionary for use in the uis_indicators module
 
+This script is to document the creation of the dictionary and should not
+be imported as a module - import uis_api and uis_indicators instead.
+
 @author: scameron
 """
 
 import pandas as pd
 from collections import defaultdict, Counter
 from file_utilities import Cache
-import uis_api_wrapper as api
-from uis_spec import UISSpec as Spec
+import uis_api as api
+from uis_api import Spec
 from itertools import product
 import logging as lg
 from numpy import NaN
@@ -54,11 +57,12 @@ def get_uis_dictionary(filename="uis-data-dictionary-education-statistics.xlsx",
 
 def add_sdmx_keys(df):
     """ Add the sdmx keys to a dataframe. """
-    df["sdmx_key"] = df[Spec.dims].apply(lambda x: ".".join(x), axis=1)
+    df["sdmx_key"] = df[api.Spec.dims].apply(lambda x: ".".join(x), axis=1)
 
 def match_inds_in_api(spec):
     """ Recursive generator to find all indicators that are in 
-    the API and fit the given indicator specification
+    the API and fit the given indicator specification. Yields the indicators
+    as dictionaries of dimensions and values.
     """
     #print("--get_combos", kwargs)
     #leave_out = ["COUNTRY_ORIGIN", "REF_AREA", "TIME_PERIOD"]
@@ -67,14 +71,14 @@ def match_inds_in_api(spec):
     message = api.get_data(detail="serieskeysonly", 
                        quiet=True,
                        dimension_at_observation='AllDimensions', 
-                       **kwargs)
+                       **spec.properties)
     dims = message["structure"]["dimensions"]["observation"]
     undetermined = {}
     determined = {}
     for dim in dims:
         dim_id = dim["id"]
         value_ids = [v["id"] for v in dim["values"]]
-        if dim_id not in Spec.ignore:
+        if dim_id not in api.Spec.ignore:
             if len(value_ids) == 0: # shouldn't happen
                 raise ValueError("No values found for {}".format(dim_id))
             elif len(value_ids) == 1:
@@ -90,14 +94,14 @@ def match_inds_in_api(spec):
             if len(undetermined) == 1:
                 yield determined
             else: # >1 undetermined value, so we need to do another query
-                for ind in match_inds_in_api(Spec(**determined)):
+                for ind in match_inds_in_api(api.Spec(**determined)):
                     yield ind
                 
            
-def write_combos(filename, **kwargs):
+def write_inds(filename, **kwargs):
     """ Wrapper for get_combos that writes to a text file and prints output"""
     with open(filename, "w") as f:
-        for i, combo in enumerate(get_combos(**kwargs)):
+        for i, combo in enumerate(match_inds_in_api(**kwargs)):
             s = Spec(**combo).to_key()
             print("{}: {}".format(i, s))
             f.write("{}\n".format(s))

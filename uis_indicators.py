@@ -5,7 +5,7 @@ Class wrapping a dictionary of labels for UIS indicators
 """
 
 
-from uis_spec import UISSpec
+from uis_api_wrapper import Spec
 import logging as lg
 
 lg.basicConfig(level=lg.DEBUG)
@@ -26,7 +26,7 @@ class UISInd(object):
         self.key = self.keys[index]
         self.short_key = self.short_keys[index]
         self.uis_name = self.uis_names[index]
-        self.spec = UISSpec.from_key(self.key)
+        self.spec = Spec.from_key(self.key)
     
     @classmethod
     def get_index(cls, sdmx_key=None, uis_name=None, short_key=None):
