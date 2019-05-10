@@ -4,9 +4,40 @@ Class wrapping a dictionary of labels for UIS indicators
 @author: scameron
 """
 
+import icy_sdmx
 
-from uis_api_wrapper import Spec
+#from uis_api_wrapper import Spec
 import logging as lg
+
+api = icy_sdmx.Api(
+        url="http://api.uis.unesco.org/sdmx/data/UNESCO,EDU_NON_FINANCE,3.0/",
+        subscription_key="8be270194d6444189bdde1a7b2666911",
+        dimensions=[
+           "STAT_UNIT",
+           "UNIT_MEASURE",
+           "EDU_LEVEL",
+           "EDU_CAT",
+           "SEX",
+           "AGE",
+           "GRADE",
+           "SECTOR_EDU",
+           "EDU_ATTAIN",
+           "WEALTH_QUINTILE",
+           "LOCATION",
+           "EDU_TYPE",
+           "EDU_FIELD",
+           "SUBJECT",
+           "INFRASTR",
+           "SE_BKGRD",
+           "TEACH_EXPERIENCE",
+           "CONTRACT_TYPE",
+           "COUNTRY_ORIGIN",
+           "REGION_DEST",
+           "IMM_STATUS",
+           "REF_AREA",
+           "TIME_PERIOD"
+            ])
+
 
 lg.basicConfig(level=lg.DEBUG)
 

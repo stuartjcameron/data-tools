@@ -1,5 +1,11 @@
 # -*- coding: utf-8 -*-
 """
+Request data from an SDMX API and return it in a convenient
+'indicator-country-year' JSON or Pandas dataframe format.
+
+This has been designed for use with the uis api
+
+
 Functions that wrap requests to the UIS data API
 Currently contains fairly low level functions that simply convert a 
 python function call to a request to the API and return the data.
@@ -28,34 +34,6 @@ import logging as lg
 lg.basicConfig(level=lg.DEBUG)
 LONG = object()
 WIDE = object()
-
-
-DIMENSIONS = [
-       "STAT_UNIT",
-       "UNIT_MEASURE",
-       "EDU_LEVEL",
-       "EDU_CAT",
-       "SEX",
-       "AGE",
-       "GRADE",
-       "SECTOR_EDU",
-       "EDU_ATTAIN",
-       "WEALTH_QUINTILE",
-       "LOCATION",
-       "EDU_TYPE",
-       "EDU_FIELD",
-       "SUBJECT",
-       "INFRASTR",
-       "SE_BKGRD",
-       "TEACH_EXPERIENCE",
-       "CONTRACT_TYPE",
-       "COUNTRY_ORIGIN",
-       "REGION_DEST",
-       "IMM_STATUS",
-       "REF_AREA",
-       "TIME_PERIOD"
-        ]
-
 
 class Spec(object):
     """ UIS indicator specification
@@ -155,7 +133,6 @@ def value_to_filter_string(v):
         return str(v)
 
 const_params = {
-    "subscription-key": "8be270194d6444189bdde1a7b2666911",
     "format": "sdmx-json"
 }
 
@@ -186,6 +163,19 @@ def construct_query(query_type, **kwargs):
     lg.info("- yr url is {url} with params {params}".format(url=url, params=params))
     return url, params
 
+
+class Api(object):
+    def __init__(self, url, subscription_key, dimensions=None):
+        self.url = url
+        self.subscription_key = subscription_key
+        self.dimensions = dimensions
+        
+    def get_dimensions():
+        """ Look up the dimensions from the API if they are not provided
+        by the user """
+        #TODO
+        
+        
 def get_json(query_type, **kwargs):
     """ Construct a URL based on the query type and kwargs
     and return the JSON found there """
@@ -316,5 +306,8 @@ Something like:
        "COUNTRY_ORIGIN",
        "REGION_DEST",
        "IMM_STATUS"])
+
+Assuming that ref_area and time_period are universal for now. If they differ
+then may have to use different names for these.
 
 """    
