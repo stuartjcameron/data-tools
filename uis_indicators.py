@@ -4,15 +4,13 @@ Class wrapping a dictionary of labels for UIS indicators
 @author: scameron
 """
 
-import icy_sdmx
+from icy_sdmx import Filter
 
 #from uis_api_wrapper import Spec
 import logging as lg
+#don't need this - just initialize the spec with the list of dimensions...
 
-api = icy_sdmx.Api(
-        url="http://api.uis.unesco.org/sdmx/data/UNESCO,EDU_NON_FINANCE,3.0/",
-        subscription_key="8be270194d6444189bdde1a7b2666911",
-        dimensions=[
+fltr = Filter(dimensions=[
            "STAT_UNIT",
            "UNIT_MEASURE",
            "EDU_LEVEL",
@@ -44,11 +42,8 @@ lg.basicConfig(level=lg.DEBUG)
 class UISInd(object):
     """ UIS indicator 
     
-    Class for storing dimension-value pairs that fully specify a UIS
-    indicator 
-    Also wraps a dictionary of labels
-    Can be passed to an API query to get all data that matches the specification
-    - will only match one specific indicator (or none)
+    Wraps a dictionary of indicator labels and specifications with convenient
+    lookup functions
     
     """
     def __init__(self, sdmx_key=None, uis_name=None, short_key=None, index=None):
@@ -57,7 +52,7 @@ class UISInd(object):
         self.key = self.keys[index]
         self.short_key = self.short_keys[index]
         self.uis_name = self.uis_names[index]
-        self.spec = Spec.from_key(self.key)
+        self.spec = fltr.key_to_dict(self.key)
     
     @classmethod
     def get_index(cls, sdmx_key=None, uis_name=None, short_key=None):
@@ -74,7 +69,7 @@ class UISInd(object):
         
         
     def matches_spec(self, spec):
-        for k, v in self.spec.parameters.items():
+        for k, v in self.spec.items():
             if k in spec and spec[k] not in [None, "", v]:
                 return False
         return True

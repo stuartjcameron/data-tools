@@ -16,8 +16,7 @@ be imported as a module - import uis_api and uis_indicators instead.
 import pandas as pd
 from collections import defaultdict, Counter
 from file_utilities import Cache
-import uis_api as api
-from uis_api import Spec
+from uis_api import Api
 from itertools import product
 import logging as lg
 from numpy import NaN
@@ -55,87 +54,160 @@ def get_uis_dictionary(filename="uis-data-dictionary-education-statistics.xlsx",
     return df
 
 
-def add_sdmx_keys(df):
+def add_sdmx_keys(df, filter_):
     """ Add the sdmx keys to a dataframe. """
-    df["sdmx_key"] = df[api.Spec.dims].apply(lambda x: ".".join(x), axis=1)
+    df["sdmx_key"] = df[filter_.dims()].apply(lambda x: ".".join(x), axis=1)
 
-def match_inds_in_api(spec):
-    """ Recursive generator to find all indicators that are in 
-    the API and fit the given indicator specification. Yields the indicators
-    as dictionaries of dimensions and values.
-    """
-    #print("--get_combos", kwargs)
-    #leave_out = ["COUNTRY_ORIGIN", "REF_AREA", "TIME_PERIOD"]
-    #leave_out = ["REF_AREA", "TIME_PERIOD"]
-    #include_dimids = [id for id in dimension_ids if id not in leave_out]
-    message = api.get_data(detail="serieskeysonly", 
-                       quiet=True,
-                       dimension_at_observation='AllDimensions', 
-                       **spec.properties)
-    dims = message["structure"]["dimensions"]["observation"]
-    undetermined = {}
-    determined = {}
-    for dim in dims:
-        dim_id = dim["id"]
-        value_ids = [v["id"] for v in dim["values"]]
-        if dim_id not in api.Spec.ignore:
-            if len(value_ids) == 0: # shouldn't happen
-                raise ValueError("No values found for {}".format(dim_id))
-            elif len(value_ids) == 1:
-                determined[dim_id] = value_ids[0]
-            else:
-                undetermined[dim_id] = value_ids    
-    if not undetermined:
-        yield determined
-    else:
-        first_dim, first_value_ids = next(iter(undetermined.items()))
-        for value_id in first_value_ids:
-            determined[first_dim] = value_id
-            if len(undetermined) == 1:
-                yield determined
-            else: # >1 undetermined value, so we need to do another query
-                for ind in match_inds_in_api(api.Spec(**determined)):
-                    yield ind
-                
            
-def write_inds(filename, **kwargs):
-    """ Wrapper for get_combos that writes to a text file and prints output"""
-    with open(filename, "w") as f:
-        for i, combo in enumerate(match_inds_in_api(**kwargs)):
-            s = Spec(**combo).to_key()
-            print("{}: {}".format(i, s))
-            f.write("{}\n".format(s))
-    
-def get_written_combos(filename):
+def get_written_inds(filename, filter_):
     """ Return list of dicts based on text file with one line per indicator """
     with open(filename, "r") as f:
-        return [sdmx_key_to_dict(line.strip()) for line in f]
-                
-def remove_dimension(code, i):
-    """ remove ith dimension from a dimension string code """
-    return ".".join(("*" if i == j else v)
-                    for j, v in enumerate(code.split(".")))
-def abbreviate_combo(combo):
-    """ Suggest a list of abbreviations based on removing defaults / totals """
-    remove = ["_T", "_Z", "INST_T", "W00", "_X", "PT", "SCH_AGE_GROUP"]
-    dont_remove = [("EDU_FIELD", "_X"), ("COUNTRY_ORIGIN", "PT")]   # over-rides remove in specific cases
-    mangle = ["_U"]  # alter unknown to a field-specific code
-    replace = {"EDU_LEVEL": ("L", "")}
+        return [filter_.key_to_dict(line.strip()) for line in f]            
+
+def get_droppable_values(indicators, filt, within):
+    """ Return a dictionary of dictionaries of values that can be dropped
+    for each stat_unit and dimension, because they do not vary.
+    e.g. {"OFST": {"LEVEL": "_Z"}}
+    
+    TODO: consider a more generalizable version where within could be a list    
+    """
+    use_dimensions = []
+    for d in filt.dims():
+        if not d == within and any((d in ind) for ind in indicators):
+            use_dimensions.append(d)
+    stat_units = set(c[within] for ind in indicators)
+    drop = defaultdict(dict)
+    for stat_unit in stat_units:
+        for d in use_dimensions:
+            values = set(ind[d] for ind in indicators if c[within] == stat_unit)
+            if len(values) == 1:
+                drop[stat_unit][d] = next(iter(values))
+    return drop
+   
+    
+def transform_ind(indicator, rules):
+    """ Transform an indicator dict according to the set of rules 
+    TODO: we assume that drop values will be by stat_unit
+    consider altering to make it more general. """
+    drop_values = rules["drop"][indicator["STAT_UNIT"]]
     r = {}
-    for k, v in combo.items():
-        if v in remove and not (k, v) in dont_remove:
+    for k, v in indicator.items():
+        if drop_values.get(k, None) == v:
             r[k] = ""
-        elif v in mangle:
+        elif v in rules["remove"] and not (k, v) in rules["dont_remove"]:
+            r[k] = ""
+        elif v in rules["mangle"]:
             r[k] = "{k}_{v}".format(k=k, v=v)
-        elif k in replace:
-            r[k] = v.replace(*replace[k])
+        elif k in rules["replace"]:
+            r[k] = v.replace(*rules["replace"][k])
         else:
             r[k] = v
     return r
 
+           
+def ind_to_short_key(ind, rules, filt):
+    """ Produce an abbreviated set of keys based on a list of indicators
+        and some rules.
+            
+        Returns the list of shortened keys and a dictionary of information
+        needed to reverse the changes.
+
+    """ 
+    transformed = transform_ind(ind, rules)
+    key = filt.dict_to_key(transformed)
+    return "-".join(part.lower() for part in key.split(".") if part)
+    
+
+def short_key_to_ind(key, rules, all_dims, possible):
+    """      
+        Reverting the set requires:
+            a dictionary of possible values for each dimension 
+                (could extract this from the list of indicators or 
+                get it from the api directly?)
+            the rules
+            the list of dimensions (in the right order)
+       
+        Apply the rules in reverse, returning a list of indicators
+        that might match a short key.
+    
+    """
+                
+    def ordered(dims):
+        """ Check whether a list of dimensions are in the right order
+        or not """
+        return all(all_dims.index(a) < all_dims.index(b) 
+                   for a, b in zip(dims, dims[1:]))
+                    
+    def revert_value(dim_id, v):
+        """ Apply the rules in reverse to transform a value back to its
+        original value. Requires the set of possible values to have been
+        set. """
+        poss = possible[dim_id]
+        if v in poss:
+            return v
+        for mangled_value in set(rules["mangle"]) & set(poss):
+            if v == "{k}_{v}".format(k=dim_id, v=mangled_value):
+                return mangled_value
+        if dim_id in rules["replace"]:
+            for possible_value in poss:
+                if v == possible_value.replace(*rules["replace"][dim_id]):
+                    return possible_value
+
+    def unspecified_value(d):
+        """ Return possible unspecified values for a given dimension id """
+        return list(set(v for v in rules["remove"]
+                        if (d, v) not in rules["dont_remove"])
+                & set(possible[d]))
+    
+    # The following have to be the same in in abbreviate_combo
+    # TODO: move both into a class or similar 
+    # cache and store these together with dimension_ids and all_dims
+    spec_values = [part.upper() for part in key.split("-")]
+    
+    # First check the stat_unit which should be the first part
+    stat_unit = spec_values.pop(0)
+    if stat_unit not in possible["STAT_UNIT"]:
+        return []
+    
+    dont_use = ["STAT_UNIT", "REF_AREA", "TIME_PERIOD"]
+    dims = [d for d in all_dims if d not in dont_use]
+
+    # First ascertain the possible dimensions that each value 
+    # might refer to 
+    possible_dims_for_each_value = []
+    fixed = []
+    dropped_values = rules["drop"][stat_unit]
+    for value in spec_values:
+        possible_dims = [d for d in dims 
+                         if revert_value(value, d) 
+                         and d not in fixed
+                         and d not in dropped_values]
+        # Note: consider whether to allow the user 
+        # to specify dropped values e.g. _Z
+        # Then we would include the dropped dimension in possible_dims
+        # as long as value_matches_dim == the dropped value
+        possible_dims_for_each_value.append(possible_dims)
+        if len(possible_dims) == 1:
+            fixed.append(possible_dims[0])
+    lg.info("fixed", fixed)
+    lg.info("pdfev", possible_dims_for_each_value)
+    
+    r = []
+    for dim_combination in product(*possible_dims_for_each_value):
+        if ordered(dim_combination):
+            dc = dict(zip(dim_combination, spec_values))
+            dc["STAT_UNIT"] = stat_unit
+            for d in dims:
+                if d in dc:
+                    dc[d] = revert_value(dc[d], d)    
+                else:
+                    dc[d] = unspecified_value(d)
+            r.append(dc)     
+    return r
+
 
 def match_short_key(key, indicators):
-    """ Find a combo in all_combos that matches the given abbreviated SDMX key """
+    """ Find an indicator in indicators that matches the given abbreviated SDMX key """
     r = [ind for ind in indicators if ind["short_key"] == key]
     if len(r) > 1:
         raise KeyError("Short key matches more than one indicator")
@@ -150,100 +222,8 @@ def unique(it):
     for i, v in enumerate(it):
         if i > 0:
             raise ValueError("More than one value was found in iterable")
-    return v
-
-def short_key_to_combo(key, possible, dropped_dims=None, quiet=True):
-    """ Given all the possible values for each dimension,
-    return possible combos matching a short key.
-    Also uses dimension_ids """
-    # The following have to be the same in in abbreviate_combo
-    # TODO: move both into a class or similar 
-    # cache and store these together with dimension_ids and all_dims
-    remove = ["_T", "_Z", "INST_T", "W00", "_X", "PT", "SCH_AGE_GROUP"]
-    dont_remove = [("EDU_FIELD", "_X"), ("COUNTRY_ORIGIN", "PT")]   # over-rides remove in specific cases
-    spec_values = [part.upper() for part in key.split("-")]
-    
-    # First check the stat_unit which should be the first part
-    stat_unit = spec_values.pop(0)
-    if stat_unit not in possible["STAT_UNIT"]:
-        return []
-    
-    dont_use = ["STAT_UNIT", "REF_AREA", "TIME_PERIOD"]
-    dims = [d for d in dimension_ids if d not in dont_use]
-    dropped_dict = {}
-    if dropped_dims:
-        for s, d, v in dropped_dims:
-            if stat_unit == s:
-                dropped_dict[d] = v
-    
-    def ordered(s):
-        """ Check whether a list of dimensions are in the right order
-        or not """
-        return all(dims.index(a) < dims.index(b) 
-                   for a, b in zip(s, s[1:]))
-        
-    def unspecified_value(d):
-        """ Return possible unspecified values for a given dimension id """
-        return list(set(v for v in remove if (d, v) not in dont_remove)
-                    & set(possible[d]))
-
-    possible_dims_for_each_value = []
-    fixed = []
-    for value in spec_values:
-        possible_dims = [d for d in dims 
-                         if value_matches_dim(value, d, possible[d]) 
-                         and d not in fixed
-                         and d not in dropped_dict]
-        # Note: consider whether to allow the user 
-        # to specify dropped values e.g. _Z
-        # Then we would include the dropped dimension in possible_dims
-        # as long as value_matches_dim == the dropped value
-        possible_dims_for_each_value.append(possible_dims)
-        if len(possible_dims) == 1:
-            fixed.append(possible_dims[0])
-    if not quiet:
-        print("fixed", fixed)
-        print("pdfev", possible_dims_for_each_value)
-    r = []
-    for dim_combination in product(*possible_dims_for_each_value):
-        if ordered(dim_combination):
-            dc = dict(zip(dim_combination, spec_values))
-            dc["STAT_UNIT"] = stat_unit
-            for d in dims:
-                if d in dc:
-                    dc[d] = value_matches_dim(dc[d], d, possible[d])    
-                else:
-                    dc[d] = unspecified_value(d)
-            r.append(dc)     
-    return r
-
-            
-        
-def value_matches_dim(value, dim_id, possible):
-    """ Check whether a given value can represent the given dimension
-    given an array of possible values for the dimension. Return the 
-    original value if so """
-    # The following have to be the same in in abbreviate_combo
-    # TODO: move both into a class or similar 
-    # cache and store these together with dimension_ids and all_dims
-    mangle = ["_U"]  # alter unknown to a field-specific code
-    replace = {"EDU_LEVEL": ("L", "")}
-    if value in possible:
-        return value
-    for mangled_value in set(mangle) & set(possible):
-        if value == "{k}_{v}".format(k=dim_id, v=mangled_value):
-            return mangled_value
-    if dim_id in replace:
-        for v in possible:
-            if value == v.replace(*replace[dim_id]):
-                return v
-        
+    return v        
    
-
-def shorten_sdmx_key(key):
-    """ Remove all excess dots """
-    return "-".join(part.lower() for part in key.split(".") if part)
- 
 
 def simplify_sdmx(message, hide_na=True, hide_total=True):
     """ Convert an SDMX message in to a more human-readable list of dicts containing
@@ -302,52 +282,57 @@ def convert_sdmx(message, value_list=False, shorthand=False):
         r[indicator_id][ref_area][time_period] = v[0]
     return r
 
-def drop_common_dimensions(combos):
-    """ Drop any dimension that is always the same for a given
-    stat_unit; works in place and returns a list of the dropped
-    dimensions """
-    use_dimensions = []
-    for d in dimension_ids:
-        if not d == "STAT_UNIT" and any((d in combo) for combo in combos):
-            use_dimensions.append(d)
-    stat_units = set(c["STAT_UNIT"] for c in combos)
-    drop = []
-    for stat_unit in stat_units:
-        for d in use_dimensions:
-            values = set(c[d] for c in combos if c["STAT_UNIT"] == stat_unit)
-            if len(values) == 1:
-                drop.append((stat_unit, d, next(iter(values))))
-    for c in combos:
-        for stat_unit, d, v in drop:
-            if c["STAT_UNIT"] == stat_unit and c[d] == v:
-                c[d] = ""    
-    return drop
 
 
-def combine_combos(*combos):
-    """ Combine combos into a single combo with multiple values.
-    Note this can 'over-query', i.e. return too many results if there
-    is too much difference between the combos. """
-    r = defaultdict(set)
-    for combo in combos:
-        for key, value in combo.items():
-            if type(value) is list:
-                r[key] |= set(value)
-            else:
-                r[key].add(value)
-    return {k: list(v) for k, v in r.items()}
+
+
             
         
 
-#cache.save('all-dimensions', api.get_dimensions())  # slow!
-all_dims = cache.load('all-dimensions')
-#write_combos(cache.file("all-paths2.txt")) #takes 5 minutes
+api = Api(url="https://api.uis.unesco.org/sdmx/data/UNESCO,EDU_NON_FINANCE,3.0", 
+          subscription_key="8be270194d6444189bdde1a7b2666911",
+          dimensions=[
+           "STAT_UNIT",
+           "UNIT_MEASURE",
+           "EDU_LEVEL",
+           "EDU_CAT",
+           "SEX",
+           "AGE",
+           "GRADE",
+           "SECTOR_EDU",
+           "EDU_ATTAIN",
+           "WEALTH_QUINTILE",
+           "LOCATION",
+           "EDU_TYPE",
+           "EDU_FIELD",
+           "SUBJECT",
+           "INFRASTR",
+           "SE_BKGRD",
+           "TEACH_EXPERIENCE",
+           "CONTRACT_TYPE",
+           "COUNTRY_ORIGIN",
+           "REGION_DEST",
+           "IMM_STATUS",
+           "REF_AREA",
+           "TIME_PERIOD"
+            ])
 
-combos = get_written_combos(cache.file("all-paths2.txt"))
-combos_copy = [c.copy() for c in combos]
-dropped = drop_common_dimensions(combos_copy)
-# note, dropping common dimensions makes the short name depend
-# on all of the combinations that are available, so harder to 'undo'
+
+# these are slow so we do once and cache the results
+#cache.save('all-dimensions', api.get_possible_values())  # slow!
+#api.write_inds_to_file(cache.file("all-paths2.txt")) #takes 5 minutes
+
+possible_values = cache.load('all-dimensions')
+all_indicators = get_written_inds(cache.file("all-paths2.txt"))
+shortening_rules = {
+    "drop": get_droppable_values(all_indicators, api.filter, within="STAT_UNIT"),
+    "remove": ["_T", "_Z", "INST_T", "W00", "_X", "PT", "SCH_AGE_GROUP"],
+    "dont_remove": [("EDU_FIELD", "_X"), ("COUNTRY_ORIGIN", "PT")],   # over-rides remove in specific cases
+    "mangle": ["_U"],  # alter unknown to a field-specific code
+    "replace": {"EDU_LEVEL": ("L", "")}
+    }
+short_keys = [ind_to_short_key(ind, shortening_rules, api.filter)
+    for ind in all_indicators]
 
 abb_combos = [abbreviate_combo(combo) for combo in combos_copy]
 
@@ -372,7 +357,7 @@ cache.save("all combos", combos, fieldnames)
 
 # take an example and un-shorten it
 s = unique(short_key_to_combo("cr-glpia-1-q3", all_dims, dropped))
-data_message = api.get_data(**s)
+data_message = api.get_data_for_spec(s)
 
 d = {}
 for k in short_keys:
@@ -387,7 +372,8 @@ dups = {k: combos for k, combos in d.items() if len(combos) > 1}
 # instead we want to query both and combine the data
 # the first with age=Y11t15 will not return anything.
 uis_dictionary = get_uis_dictionary()
-add_sdmx_keys(uis_dictionary)
+
+add_sdmx_keys(uis_dictionary, api.filter)
 key_lookup = dict(zip(full_sdmx_keys, short_keys)).get
 uis_dictionary["short_key"] = uis_dictionary["sdmx_key"].apply(key_lookup.get)
 
