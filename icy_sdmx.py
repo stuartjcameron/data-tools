@@ -216,10 +216,37 @@ class Api(object):
                 lg.info("{}: {}".format(i, s))
                 f.write("{}\n".format(s))
 
-def sdmx_to_icy(message, meta=False):
+def sdmx_to_icy(message, filt, meta=False):
     """ Convert an SDMX message containing data to indicator, country, year 
-    json format. Optionally, the format can contain metadata and notes. """
-
+    json format. Optionally, the format can contain metadata and notes. 
+    TODO: check if there are cases when >1 dataset is returned! 
+    TODO: allow indicator shorthands... based on a lookup from a CSV
+    TODO: make it part of the api? rather than having to add the filter
+    ... or get the dict_to_key function from the message itself to allow
+    it to be freestanding.
+    TODO: add the full indicator metadata at the end of the message if meta=True
+    """
+    obs = message["dataSets"][0]["observations"]
+    dimensions = message["structure"]["dimensions"]["observation"]
+    dimensions = [(d["id"], d["values"]) for d in dimensions]
+    attributes = message["structure"]["attributes"]["observation"]
+    attributes = [(d["id"], d["values"]) for d in attributes]
+    
+    # Return an ind: {country: {year: value}} nested dictionary
+    r = defaultdict(lambda: defaultdict(dict))
+    for k, v in obs.items():
+        # We convert a numberical key like 0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0
+        # into a dictionary of dimensions and then back into a more readable
+        # string like NERA.PT.M..., 
+        dim_dict = {}
+        for dimension_value, (id_, values) in zip(k.split(":"), dimensions):
+            dim_dict[id_] = values[int(dimension_value)]["id"]
+        indicator_id = filt.dict_to_key(dim_dict)
+        # ignoring attributes for now - add the exception checking later!
+        ref_area = dim_dict["REF_AREA"]
+        time_period = dim_dict["TIME_PERIOD"]
+        r[indicator_id][ref_area][time_period] = v[0]
+    return r
     
 def sdmx_to_df(message):
     """ Convert a UIS SDMX message containing data to a pandas dataframe

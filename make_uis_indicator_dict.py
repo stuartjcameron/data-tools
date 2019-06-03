@@ -64,24 +64,22 @@ def get_written_inds(filename, filter_):
     with open(filename, "r") as f:
         return [filter_.key_to_dict(line.strip()) for line in f]            
 
-def get_droppable_values(indicators, filt, within):
+def get_droppable_values(indicators, filt, within="STAT_UNIT"):
     """ Return a dictionary of dictionaries of values that can be dropped
     for each stat_unit and dimension, because they do not vary.
     e.g. {"OFST": {"LEVEL": "_Z"}}
     
     TODO: consider a more generalizable version where within could be a list    
     """
-    use_dimensions = []
-    for d in filt.dims():
-        if not d == within and any((d in ind) for ind in indicators):
-            use_dimensions.append(d)
-    stat_units = set(c[within] for ind in indicators)
+    stat_units = set(ind[within] for ind in indicators)
     drop = defaultdict(dict)
-    for stat_unit in stat_units:
-        for d in use_dimensions:
-            values = set(ind[d] for ind in indicators if c[within] == stat_unit)
-            if len(values) == 1:
-                drop[stat_unit][d] = next(iter(values))
+    for d in filt.dims():
+        if d != within and any((d in ind) for ind in indicators):
+            for stat_unit in stat_units:
+                values = set(ind[d] for ind in indicators
+                             if ind[within] == stat_unit)
+                if len(values) == 1:
+                    drop[stat_unit][d] = next(iter(values))
     return drop
    
     
@@ -90,46 +88,42 @@ def transform_ind(indicator, rules):
     TODO: we assume that drop values will be by stat_unit
     consider altering to make it more general. """
     drop_values = rules["drop"][indicator["STAT_UNIT"]]
-    r = {}
-    for k, v in indicator.items():
-        if drop_values.get(k, None) == v:
-            r[k] = ""
+    def transform_value(k, v):
+        if k in drop_values and drop_values[k] == v:
+            return ""
         elif v in rules["remove"] and not (k, v) in rules["dont_remove"]:
-            r[k] = ""
+            return ""
         elif v in rules["mangle"]:
-            r[k] = "{k}_{v}".format(k=k, v=v)
+            return "{k}_{v}".format(k=k, v=v)
         elif k in rules["replace"]:
-            r[k] = v.replace(*rules["replace"][k])
+            return v.replace(*rules["replace"][k])
         else:
-            r[k] = v
-    return r
+            return v
+        
+    return {k: transform_value(k, v) for k, v in indicator.items()}
 
            
 def ind_to_short_key(ind, rules, filt):
-    """ Produce an abbreviated set of keys based on a list of indicators
+    """ Return an abbreviated key based on an indicator dict, an API filter,
         and some rules.
-            
-        Returns the list of shortened keys and a dictionary of information
-        needed to reverse the changes.
-
+        
     """ 
+    # Transform the dictionary, 
     transformed = transform_ind(ind, rules)
+    
+    # Get the representation of this as a key (string)
     key = filt.dict_to_key(transformed)
+    
+    # Alter the key so that empty parts are dropped
     return "-".join(part.lower() for part in key.split(".") if part)
     
 
 def short_key_to_ind(key, rules, all_dims, possible):
-    """      
-        Reverting the set requires:
-            a dictionary of possible values for each dimension 
-                (could extract this from the list of indicators or 
-                get it from the api directly?)
-            the rules
-            the list of dimensions (in the right order)
-       
-        Apply the rules in reverse, returning a list of indicators
-        that might match a short key.
-    
+    """ Return a list of indicators that might match a short key by applying
+        the rules in reverse.
+        
+        This requires a list of dimensions in the right order (all_dims) and a 
+        dictionary of possible values for each dimension (possible)    
     """
                 
     def ordered(dims):
@@ -155,13 +149,11 @@ def short_key_to_ind(key, rules, all_dims, possible):
 
     def unspecified_value(d):
         """ Return possible unspecified values for a given dimension id """
+        
         return list(set(v for v in rules["remove"]
                         if (d, v) not in rules["dont_remove"])
                 & set(possible[d]))
     
-    # The following have to be the same in in abbreviate_combo
-    # TODO: move both into a class or similar 
-    # cache and store these together with dimension_ids and all_dims
     spec_values = [part.upper() for part in key.split("-")]
     
     # First check the stat_unit which should be the first part
@@ -207,7 +199,8 @@ def short_key_to_ind(key, rules, all_dims, possible):
 
 
 def match_short_key(key, indicators):
-    """ Find an indicator in indicators that matches the given abbreviated SDMX key """
+    """ Find an indicator in indicators that matches the given short key
+    (Assumes 'short_key' property has already been set) """
     r = [ind for ind in indicators if ind["short_key"] == key]
     if len(r) > 1:
         raise KeyError("Short key matches more than one indicator")
@@ -233,6 +226,8 @@ def simplify_sdmx(message, hide_na=True, hide_total=True):
         'SECTOR_EDU': 'INST_T'
         'COUNTRY_ORIGIN': 'W00'
         'REGION_DEST': 'W00'
+        
+    CURRENTLY NOT USED - can mostly use sdmx_to_icy instead
     """
     obs = message["dataSets"][0]["observations"]
     dimensions = message["structure"]["dimensions"]["observation"]
@@ -250,44 +245,7 @@ def simplify_sdmx(message, hide_na=True, hide_total=True):
         for attribute_value, (id_, values) in zip(v[1:], attributes):
             d[id_] = values[attribute_value]["name"]
         r.append(d)
-    return r
-
-            
-def convert_sdmx(message, value_list=False, shorthand=False):
-    """ Convert SDMX into an indicator-country-values with exceptional 
-    metadata format 
-    TODO: check if there are cases when >1 dataset is returned! 
-    TODO: allow indicator shorthands... based on a lookup from a CSV
-    TODO: probably add the full indicator metadata at the end of the message
-    """
-    obs = message["dataSets"][0]["observations"]
-    dimensions = message["structure"]["dimensions"]["observation"]
-    dimensions = [(d["id"], d["values"]) for d in dimensions]
-    attributes = message["structure"]["attributes"]["observation"]
-    attributes = [(d["id"], d["values"]) for d in attributes]
-    
-    # Return an ind: {country: {year: value}} nested dictionary
-    r = defaultdict(lambda: defaultdict(dict))
-    for k, v in obs.items():
-        # We convert a numberical key like 0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0
-        # into a dictionary of dimensions and then back into a more readable
-        # string like NERA.PT.M..., 
-        dim_dict = {}
-        for dimension_value, (id_, values) in zip(k.split(":"), dimensions):
-            dim_dict[id_] = values[int(dimension_value)]["id"]
-        indicator_id = dict_to_sdmx_key(dim_dict)
-        # ignoring attributes for now - add the exception checking later!
-        ref_area = dim_dict["REF_AREA"]
-        time_period = dim_dict["TIME_PERIOD"]
-        r[indicator_id][ref_area][time_period] = v[0]
-    return r
-
-
-
-
-
-            
-        
+    return r    
 
 api = Api(url="https://api.uis.unesco.org/sdmx/data/UNESCO,EDU_NON_FINANCE,3.0", 
           subscription_key="8be270194d6444189bdde1a7b2666911",
