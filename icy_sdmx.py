@@ -10,17 +10,6 @@ Functions that wrap requests to the UIS data API
 Currently contains fairly low level functions that simply convert a 
 python function call to a request to the API and return the data.
 
-Example: Get adjusted net enrolment rate for Bangladesh and Uganda,
-2012-16.
-
-    nera_bd = api.get_data(stat_unit="NERA",
-         ref_area=["BD", "UG"],
-         unit_measure="PT",
-         start_period=2012,
-         end_period=2016,
-         dimension_at_observation='AllDimensions')
-    
-
     
 @author: scameron
 """
@@ -29,7 +18,7 @@ import inflection
 import requests
 from urllib.parse import urljoin
 import logging as lg
-from collections import defaultdict
+from collections import defaultdict, Counter
 lg.basicConfig(level=lg.DEBUG)
 LONG = object()
 WIDE = object()
@@ -64,14 +53,14 @@ class Filter(object):
     
     def extract_dims(self, d, ind=True):
         """ Extract the valid dimensions from a dictionary """
-        return {k: v for k, v in d.items() if self.is_dim(k, ind)}
+        return {k.upper(): v for k, v in d.items() if self.is_dim(k, ind)}
     
     def extract_dims_and_remainder(self, d, ind=True):
         r = {}
         remainder = {}
         for k, v in d.items():
             if self.is_dim(k, ind):
-                r[k] = v
+                r[k.upper()] = v
             else:
                 remainder[k] = v
         return r, remainder
@@ -82,14 +71,14 @@ class Filter(object):
         and time_period (if these are in the dict)
         """ 
         if d:
-            return ".".join(value_to_filter_string(d[k])
+            return ".".join(value_to_filter_string(d.get(k))
                         for k in self.dims(ind))
         else: # d not specified, None or {} -- empty query
             return "." * (len(self.dims(ind)) - 1)
             
     def key_to_dict(self, key, ind=True):
         """ Returns a dict based on an SDMX key """
-        return self.extract_dims((zip(self.all_dims, key.split("."))))
+        return self.extract_dims(dict((zip(self.all_dims, key.split(".")))))
     
 def combine_queries(*query_dicts):
     """ Combine dicts representing indicators or queries into a 
@@ -122,54 +111,68 @@ def camel(k):
     """
     return inflection.camelize(k, uppercase_first_letter=False)
 
-
 class Api(object):
-    def __init__(self, url, subscription_key, dimensions=None):
-        self.url = url
+    def __init__(self, base, subscription_key, dimensions=None):
+        self.base = base
+        if base[-1] != "/":
+            self.base += "/"
         self.subscription_key = subscription_key
-        self.filter = Filter(dimensions)
+        if dimensions:
+            self.filter = Filter(dimensions)
+        self.verification = True
         
-    def get_dimensions(self):
-        """ Get the list of dimensions from the API in the right order """
-        # TODO: add this!
-    
-    def get_data_for_spec(self, spec, **params):
-        #TODO: deal with ref_area and time_period
-        url = urljoin(self.url, self.filter.dict_to_key(spec))
+    def get(self, spec=None, params=None):
+        """ Forms a URL from the filter specification and submits a request
+        to the API using the specified parameters. Returns a message in json
+        format. """
+        if params is None:
+            params = {}
+        url = urljoin(self.base, self.filter.dict_to_key(spec, False))
         params = {camel(k): v for k, v in params.items()}
         params["format"] = "sdmx-json"
-        return requests.get(url, params=params).json()
+        params["subscription-key"] = self.subscription_key
+        lg.info("Api.get \nurl:%s \nparams:%s", url, params)
+        return requests.get(url, params=params, verify=self.verification).json()
     
-    def get_all_data(self, **params):
-        """ Gets data without filtering """
-        return self.get_data_for_spec({}, **params)
+    def query(self, **kwargs):
+        """ Convenience function for querying the API. Accepts any parameter
+        that can filter the query, and passes the remainder as parameters to 
+        the API request.
+        """
+        spec, remainder = self.filter.extract_dims_and_remainder(kwargs, False)
+        return self.get(spec, remainder)
+    
+    def icy_query(self, **kwargs):
+        """ Query the API and return data in indicator-country-year json
+        format. """
+        message = self.query(dimension_at_observation="AllDimensions",
+                             **kwargs)
+        return sdmx_to_icy(message)
         
-    def get_data(self, **kwargs):
-        """ Use kwargs to make filter and pass remainder as parameters """
-        spec, remainder = self.filter.extract_dims_and_remainder(kwargs)
-        return self.get_data_for_spec(spec, remainder)
+    def get_dimension_information(self, spec=None):
+        """ Get the dimension information from the API for the given spec """
+        params = {"detail": "serieskeysonly", 
+                 "dimension_at_observation": "AllDimensions"}
+        message = self.get(spec, params)
+        return message["structure"]["dimensions"]["observation"]
+        
+    def get_filter(self):
+        """ Get the list of dimensions from the API in the right order """
+        dimensions = [d["id"] for d in self.get_dimension_information()]
+        self.filter = Filter(dimensions)
     
-    def get_possible_values(self):
-        """ Submit a keys-only request to find out range of values in each
-        dimension """
-        message = self.get_all_data(detail="serieskeysonly", 
-                                    dimension_at_observation='AllDimensions')
-        dimensions = message["structure"]["dimensions"]["observation"]
-        return {d["id"]: [v["id"] for v in d["values"]] for d in dimensions}
-    
-    def get_possible_values_for_spec(self, spec):
-        """ Submit a keys-only request to find out what range of other dimensions
-        are available within the fields specified by the spec
-        Returns a dictionary e.g. {"REF_AREA": ["BD", "IN"...]} 
+    def scope(self, spec=None):
+        """  
+        Submit a keys only request to the API and return the values found
+        (within the specified filter, if any) for each dimension. 
+        
+        Returns a dictionary e.g. {"REF_AREA": ["BD", "IN"...], ...} 
         
         Note: returns an empty list for the time period. This information is not
-        available in the query. Presumably need to obtain the actual data to get this?
+        available in the keys-only query.
         """
-        message = self.get_data_for_spec(spec=spec,
-                                    detail="serieskeysonly", 
-                                    dimension_at_observation='AllDimensions')
-        dimensions = message["structure"]["dimensions"]["observation"]
-        return {d["id"]: [v["id"] for v in d["values"]] for d in dimensions}
+        return {d["id"]: [v["id"] for v in d["values"]] 
+                for d in self.get_dimension_information(spec)}
     
     def match_inds(self, spec=None):
         """ Recursive generator to find all indicators that are in 
@@ -182,13 +185,9 @@ class Api(object):
             spec = {}
         else:
             spec = self.filter.extract_dims(spec)
-        message = self.get_dimensions_for_spec(spec)
-        dims = message["structure"]["dimensions"]["observation"]
         undetermined = {}
         determined = {}
-        for dim in dims:
-            dim_id = dim["id"]
-            value_ids = [v["id"] for v in dim["values"]]
+        for dim_id, value_ids in self.scope(spec).items():
             if self.filter.is_dim(dim_id):
                 if len(value_ids) == 0: # shouldn't happen
                     raise ValueError("No values found for {}".format(dim_id))
@@ -196,56 +195,128 @@ class Api(object):
                     determined[dim_id] = value_ids[0]
                 else:
                     undetermined[dim_id] = value_ids    
-        if not undetermined:
-            yield determined
-        else:
+        if undetermined:
             first_dim, first_value_ids = next(iter(undetermined.items()))
             for value_id in first_value_ids:
                 determined[first_dim] = value_id
                 if len(undetermined) == 1:
                     yield determined
                 else: # >1 undetermined value, so we need to do another query
-                    for ind in self.match_inds(spec):
-                        yield ind
+                    yield from self.match_inds(spec=determined)
+                    #for ind in self.match_inds(spec=determined):
+                    #    yield ind
+        else:
+            yield determined
+        
+def get_filter_from_message(message):
+    """ Returns a list of indicator dimensions from a message
+    containing SDMX data """
+    dim_list = message["structure"]["dimensions"]["observation"]
+    return Filter([d["id"] for d in dim_list])
 
-    def match_inds_to_file(self, filename, spec=None):
-        """ Find indicators using match_inds and write them to a file """
-        with open(filename, "w") as f:
-            for i, d in enumerate(self.match_inds(spec)):
-                s = self.filter.dict_to_key(spec)
-                lg.info("{}: {}".format(i, s))
-                f.write("{}\n".format(s))
 
-def sdmx_to_icy(message, filt, meta=False):
+    
+def parse_attributes(message, most_common_attributes, abbreviate=True):
+    """ Extract a dictionary of attributes for the recorded observations.
+    Where only one value for each attribute is recorded, this goes in the metadata
+    Where multiple values are recorded, find the most common value and
+    record data points that deviate from this value.
+    """
+    attributes = message["structure"]["attributes"]["observation"]
+    r = {}
+    for attribute, most_common in zip(attributes, most_common_attributes):
+        name = attribute["name"]
+        values = attribute["values"]
+        if len(values) == 1:
+            value = values[0]
+        else:
+            # If there is more than one value, use the most common
+            value = values[most_common]
+        r[name] = {
+                "description": attribute["description"],
+                "value": value["name"]
+                }
+        if "description" in value:
+            r[name]["value_description"] = value["description"]
+    if abbreviate:
+        return abbreviate_attributes(r)
+    else:
+        return r
+    
+def abbreviate_attributes(att_dict):
+    r = {}
+    for k, v in att_dict.items():
+        new_key = "{} ({})".format(k, v["description"])
+        if "value_description" in v:
+            new_value = "{} ({})".format(v["value"], v["value_description"])
+        else:
+            new_value = v["value"]
+        r[new_key] = new_value
+    return r
+
+def identify_most_common_attributes(message):
+    observations = message["dataSets"][0]["observations"]
+    attributes = message["structure"]["attributes"]["observation"]
+    def gen():
+        for i in range(len(attributes)):
+            counter = Counter(obs[i+1] for obs in observations.values())
+            yield counter.most_common(1)[0][0]
+    
+    return list(gen())
+
+def sdmx_to_icy(message, include_metadata=True):
     """ Convert an SDMX message containing data to indicator, country, year 
     json format. Optionally, the format can contain metadata and notes. 
     TODO: check if there are cases when >1 dataset is returned! 
-    TODO: allow indicator shorthands... based on a lookup from a CSV
-    TODO: make it part of the api? rather than having to add the filter
-    ... or get the dict_to_key function from the message itself to allow
-    it to be freestanding.
     TODO: add the full indicator metadata at the end of the message if meta=True
     """
-    obs = message["dataSets"][0]["observations"]
+    observations = message["dataSets"][0]["observations"]
     dimensions = message["structure"]["dimensions"]["observation"]
-    dimensions = [(d["id"], d["values"]) for d in dimensions]
     attributes = message["structure"]["attributes"]["observation"]
-    attributes = [(d["id"], d["values"]) for d in attributes]
+    filt = Filter([d["id"] for d in dimensions])
     
     # Return an ind: {country: {year: value}} nested dictionary
     r = defaultdict(lambda: defaultdict(dict))
-    for k, v in obs.items():
+    indicator_metadata = {}
+    
+    # Identify the most common attributes
+    most_common_attributes = identify_most_common_attributes(message)
+    deviations = []
+    for observation_key, observation_value in observations.items():
         # We convert a numberical key like 0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0
         # into a dictionary of dimensions and then back into a more readable
         # string like NERA.PT.M..., 
         dim_dict = {}
-        for dimension_value, (id_, values) in zip(k.split(":"), dimensions):
-            dim_dict[id_] = values[int(dimension_value)]["id"]
+        dim_names_dict = {}
+        for key_value, dimension in zip(observation_key.split(":"), dimensions):
+            dimension_id = dimension["id"]
+            value_dict = dimension["values"][int(key_value)]
+            dim_dict[dimension_id] = value_dict["id"]
+            dim_names_dict[dimension["name"]] = value_dict["name"]
         indicator_id = filt.dict_to_key(dim_dict)
-        # ignoring attributes for now - add the exception checking later!
+        indicator_metadata[indicator_id] = dim_names_dict
+        # TODO: remove the ref area and time period from the metadata
         ref_area = dim_dict["REF_AREA"]
         time_period = dim_dict["TIME_PERIOD"]
-        r[indicator_id][ref_area][time_period] = v[0]
+        r[indicator_id][ref_area][time_period] = observation_value[0]
+        for attribute, observed_attribute, most_common in zip(attributes, observation_value[1:], most_common_attributes):
+            if observed_attribute != most_common:
+                value = attribute["values"][observed_attribute]
+                deviation_info = {"indicator": indicator_id, 
+                                   "country": ref_area, 
+                                   "year": time_period, 
+                                   attribute["name"]: value["name"]}
+                if "description" in value:
+                    deviation_info["value_description"] = value["description"]
+                deviations.append(deviation_info)
+
+    if include_metadata:
+        attributes = parse_attributes(message, most_common_attributes)
+        r["metadata"] = {
+                "indicators": indicator_metadata,
+                "attributes": attributes,
+                "exceptions": deviations
+                }
     return r
     
 def sdmx_to_df(message):
@@ -270,17 +341,6 @@ dataframe on disk http://pandas-docs.github.io/pandas-docs-travis/user_guide/io.
 - make main functions into a class that allows user to set subscription-key, e.g.
 import uis_api
 api = uis_api.Api(subscription_key="...")
-
-
-2019.05.10
-There are now 2 main basic modules:
-    uis_api_wrapper - wraps the API itself
-    uis_indicators - wraps a dictionary of indicators
-    
-Plus a script 'make_uis_indicator_dict' which documents the creation of the consolidated dictionary
-of indicators.
-
-Next, make a higher level module that imports both of these.
 
 
 Note, no longer using these but might be useful for querying dataflow...

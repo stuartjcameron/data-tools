@@ -16,7 +16,7 @@ be imported as a module - import uis_api and uis_indicators instead.
 import pandas as pd
 from collections import defaultdict, Counter
 from file_utilities import Cache
-from uis_api import Api
+from icy_sdmx import Api
 from itertools import product
 import logging as lg
 from numpy import NaN
@@ -24,6 +24,10 @@ lg.basicConfig(level=lg.DEBUG)
 #lg.getLogger().setLevel(lg.INFO)
 cache = Cache("C:/Users/wb390262/Documents/Miscpy/json")
 
+
+def get_inds_from_file(filename, filter_):
+    with open(filename, "r") as f:
+        return [filter_.key_to_dict(line.strip()) for line in f] 
 
 def get_uis_dictionary(filename="uis-data-dictionary-education-statistics.xlsx",
                        sheet_name="Students and Teachers"):
@@ -56,13 +60,7 @@ def get_uis_dictionary(filename="uis-data-dictionary-education-statistics.xlsx",
 
 def add_sdmx_keys(df, filter_):
     """ Add the sdmx keys to a dataframe. """
-    df["sdmx_key"] = df[filter_.dims()].apply(lambda x: ".".join(x), axis=1)
-
-           
-def get_written_inds(filename, filter_):
-    """ Return list of dicts based on text file with one line per indicator """
-    with open(filename, "r") as f:
-        return [filter_.key_to_dict(line.strip()) for line in f]            
+    df["key"] = df[filter_.dims()].apply(lambda x: ".".join(x), axis=1)
 
 def get_droppable_values(indicators, filt, within="STAT_UNIT"):
     """ Return a dictionary of dictionaries of values that can be dropped
@@ -108,7 +106,7 @@ def ind_to_short_key(ind, rules, filt):
         and some rules.
         
     """ 
-    # Transform the dictionary, 
+    # Transform the dictionary according to the rules
     transformed = transform_ind(ind, rules)
     
     # Get the representation of this as a key (string)
@@ -118,38 +116,41 @@ def ind_to_short_key(ind, rules, filt):
     return "-".join(part.lower() for part in key.split(".") if part)
     
 
-def short_key_to_ind(key, rules, all_dims, possible):
+def short_key_to_ind(key, rules, dims, possible):
     """ Return a list of indicators that might match a short key by applying
         the rules in reverse.
         
-        This requires a list of dimensions in the right order (all_dims) and a 
-        dictionary of possible values for each dimension (possible)    
+        This requires a list of dimensions in the right order (dims) and a 
+        dictionary of possible values for each dimension (possible)   
+        
+        It assumes the first dimension (e.g. stat_unit) has been used 
+        for dropping other dimensions.
+        TODO: consider making a more flexible version
     """
                 
-    def ordered(dims):
+    def ordered(subset):
         """ Check whether a list of dimensions are in the right order
         or not """
-        return all(all_dims.index(a) < all_dims.index(b) 
-                   for a, b in zip(dims, dims[1:]))
+        indexes = [dims.index(dim) for dim in subset]
+        return all(a < b for a, b in zip(indexes, indexes[1:]))
                     
-    def revert_value(dim_id, v):
+    def revert_value(k, v):
         """ Apply the rules in reverse to transform a value back to its
         original value. Requires the set of possible values to have been
         set. """
-        poss = possible[dim_id]
+        poss = possible[k]
         if v in poss:
             return v
         for mangled_value in set(rules["mangle"]) & set(poss):
-            if v == "{k}_{v}".format(k=dim_id, v=mangled_value):
+            if v == "{k}_{v}".format(k=k, v=mangled_value):
                 return mangled_value
-        if dim_id in rules["replace"]:
+        if k in rules["replace"]:
             for possible_value in poss:
-                if v == possible_value.replace(*rules["replace"][dim_id]):
+                if v == possible_value.replace(*rules["replace"][k]):
                     return possible_value
 
     def unspecified_value(d):
         """ Return possible unspecified values for a given dimension id """
-        
         return list(set(v for v in rules["remove"]
                         if (d, v) not in rules["dont_remove"])
                 & set(possible[d]))
@@ -158,11 +159,10 @@ def short_key_to_ind(key, rules, all_dims, possible):
     
     # First check the stat_unit which should be the first part
     stat_unit = spec_values.pop(0)
-    if stat_unit not in possible["STAT_UNIT"]:
+    if stat_unit not in possible[dims[0]]:
         return []
     
-    dont_use = ["STAT_UNIT", "REF_AREA", "TIME_PERIOD"]
-    dims = [d for d in all_dims if d not in dont_use]
+    dims = dims[1:]
 
     # First ascertain the possible dimensions that each value 
     # might refer to 
@@ -171,7 +171,7 @@ def short_key_to_ind(key, rules, all_dims, possible):
     dropped_values = rules["drop"][stat_unit]
     for value in spec_values:
         possible_dims = [d for d in dims 
-                         if revert_value(value, d) 
+                         if revert_value(d, value) 
                          and d not in fixed
                          and d not in dropped_values]
         # Note: consider whether to allow the user 
@@ -181,8 +181,7 @@ def short_key_to_ind(key, rules, all_dims, possible):
         possible_dims_for_each_value.append(possible_dims)
         if len(possible_dims) == 1:
             fixed.append(possible_dims[0])
-    lg.info("fixed", fixed)
-    lg.info("pdfev", possible_dims_for_each_value)
+    #lg.info("fixed %s\npdfef %s", fixed, possible_dims_for_each_value)
     
     r = []
     for dim_combination in product(*possible_dims_for_each_value):
@@ -191,7 +190,7 @@ def short_key_to_ind(key, rules, all_dims, possible):
             dc["STAT_UNIT"] = stat_unit
             for d in dims:
                 if d in dc:
-                    dc[d] = revert_value(dc[d], d)    
+                    dc[d] = revert_value(d, dc[d])    
                 else:
                     dc[d] = unspecified_value(d)
             r.append(dc)     
@@ -247,7 +246,7 @@ def simplify_sdmx(message, hide_na=True, hide_total=True):
         r.append(d)
     return r    
 
-api = Api(url="https://api.uis.unesco.org/sdmx/data/UNESCO,EDU_NON_FINANCE,3.0", 
+api = Api(base="https://api.uis.unesco.org/sdmx/data/UNESCO,EDU_NON_FINANCE,3.0", 
           subscription_key="8be270194d6444189bdde1a7b2666911",
           dimensions=[
            "STAT_UNIT",
@@ -275,13 +274,41 @@ api = Api(url="https://api.uis.unesco.org/sdmx/data/UNESCO,EDU_NON_FINANCE,3.0",
            "TIME_PERIOD"
             ])
 
+api.verification = False  # not secure but need this at the moment 
 
-# these are slow so we do once and cache the results
-#cache.save('all-dimensions', api.get_possible_values())  # slow!
-#api.write_inds_to_file(cache.file("all-paths2.txt")) #takes 5 minutes
+# 1. Get a list of possible values for each dimension from the API
+#cache.to_json('possible values', api.scope())  # slow!
+    
+# 2. Get a list of all the indicators from the API and save it
+#cache.to_textlist("all keys from api", 
+#                  (api.filter.dict_to_key(d) for d in api.match_inds())) 
+# (Takes 5 minutes)
 
-possible_values = cache.load('all-dimensions')
-all_indicators = get_written_inds(cache.file("all-paths2.txt"))
+
+# 2. Get the list of all indicators from the UIS dictionary spreadsheet
+uis_dictionary = get_uis_dictionary()
+add_sdmx_keys(uis_dictionary, api.filter)
+
+# 3. There are some duplicates in the UIS dictionary - drop these
+uis_dictionary.drop_duplicates(subset="Indicator ID", inplace=True)
+uis_dictionary.set_index("Indicator ID", drop=False, inplace=True)
+
+# 4. Combine the two lists and save the combined list of all keys
+all_keys = set(list(cache.from_textlist("all keys from api")) +
+    list(uis_dictionary["key"]))
+cache.to_textlist("all keys from api or dictionary", all_keys)
+
+# Note, there are 45 cases where keys in the UIS dictionary are not 
+# found in the API and 6 cases where keys in the API are not found in the
+# UIS dictionary. 
+
+
+# 5. Convert the keys to indicators specified as a dictionary of dimension-
+# value pairs
+all_indicators = [api.filter.key_to_dict(k) 
+    for k in cache.from_textlist("all keys from api or dictionary")]
+
+# 6. Make a shortened version of each indicator
 shortening_rules = {
     "drop": get_droppable_values(all_indicators, api.filter, within="STAT_UNIT"),
     "remove": ["_T", "_Z", "INST_T", "W00", "_X", "PT", "SCH_AGE_GROUP"],
@@ -289,39 +316,46 @@ shortening_rules = {
     "mangle": ["_U"],  # alter unknown to a field-specific code
     "replace": {"EDU_LEVEL": ("L", "")}
     }
-short_keys = [ind_to_short_key(ind, shortening_rules, api.filter)
-    for ind in all_indicators]
 
-abb_combos = [abbreviate_combo(combo) for combo in combos_copy]
-
-full_sdmx_keys = [dict_to_sdmx_key(combo) for combo in combos]
-abb_sdmx_keys = [dict_to_sdmx_key(c) for c in abb_combos]
-short_keys = [shorten_sdmx_key(k) for k in abb_sdmx_keys]
-
-for c, full, abb, abb2 in zip(combos, full_sdmx_keys, abb_sdmx_keys, short_keys):
-    c["full_sdmx_key"] = full
-    c["abb_sdmx_key"] = abb
-    c["short_key"] = abb2
-
+keys = []
+short_keys = []
+for ind in all_indicators:
+    key = api.filter.dict_to_key(ind)
+    short_key = ind_to_short_key(ind, shortening_rules, api.filter)
+    ind["key"] = key
+    keys.append(key)
+    ind["short_key"] = short_key
+    short_keys.append(short_key)
+#fieldnames = api.filter.dims() + ["full_sdmx_key", "abb_sdmx_key", "short_key"]
+#cache.dicts_to_csv("all indicators-new", all_indicators, fieldnames)
 
 
-# identify duplicates by abb_sdmx_keys2 and write to CSV
+# 7. Do some checks on the short keys
+# (a) any duplicate short keys?
 counts = Counter(short_keys)
-dups = [c for c in combos if counts[c["short_key"]] > 1]
-fieldnames = dimension_ids + ["full_sdmx_key", "abb_sdmx_key", "short_key"]
-cache.save("duplicate short codes", dups, fieldnames)
-cache.save("all combos", combos, fieldnames)
+dups = [c for c in all_indicators if counts[c["short_key"]] > 1]
+# there are no duplicates so the key shortening works well
 
+# (b) take an example and un-shorten it
+eg = "cr-glpia-1-q3"
 
-# take an example and un-shorten it
-s = unique(short_key_to_combo("cr-glpia-1-q3", all_dims, dropped))
-data_message = api.get_data_for_spec(s)
+s = short_key_to_ind(key=eg, 
+                     rules=shortening_rules,
+                     dims=api.filter.dims(),
+                     possible=cache.from_json('possible values'))
+print("key", eg, "matches:", s, "number of matches:", len(s))
+data_message = api.get(s[0])
 
+# (c) un-shorten all of the short keys and check for multiple
+# un-shortened versions
 d = {}
 for k in short_keys:
-    d[k] = short_key_to_combo(k, all_dims, dropped)
+    d[k] = short_key_to_ind(k, 
+         rules=shortening_rules, 
+         dims=api.filter.dims(),
+         possible=cache.from_json('possible values'))
 
-dups = {k: combos for k, combos in d.items() if len(combos) > 1}
+dups2 = {k: inds for k, inds in d.items() if len(inds) > 1}
 # there are some duplicates for stat_unit TEACH
 # where the age has been set to Y11t15 instead of teach_experience
 # note that no such values exist in the data
@@ -329,15 +363,45 @@ dups = {k: combos for k, combos in d.items() if len(combos) > 1}
 # TEACH_EXPERIENCE=_T as well as Y11T15
 # instead we want to query both and combine the data
 # the first with age=Y11t15 will not return anything.
-uis_dictionary = get_uis_dictionary()
 
-add_sdmx_keys(uis_dictionary, api.filter)
-key_lookup = dict(zip(full_sdmx_keys, short_keys)).get
-uis_dictionary["short_key"] = uis_dictionary["sdmx_key"].apply(key_lookup.get)
 
-# There are some duplicates...
-uis_dictionary.drop_duplicates(subset="Indicator ID", inplace=True)
-uis_dictionary.set_index("Indicator ID", drop=False, inplace=True)
+# 8. Add short keys to the dictionary dataframe
+key_lookup = dict(zip(keys, short_keys)).get
+uis_dictionary["short_key"] = uis_dictionary["key"].apply(key_lookup)
+
+# 9. Add the keys found in the API but not in the UIS dictionary
+# (There is no indicator ID so we use the short key)
+# We fill in missing columns from the UIS dictionary from the first row
+# with the same stat unit.
+extra_keys = (set(cache.from_textlist("all keys from api")) -
+    set(uis_dictionary["key"]))
+
+extra_inds = [ind for ind in all_indicators if ind["key"] in extra_keys]
+extra_stat_units = set(ind["STAT_UNIT"] for ind in extra_inds)
+
+copy_data = {stat_unit: uis_dictionary[uis_dictionary["STAT_UNIT"] == stat_unit].iloc[0]
+    for stat_unit in extra_stat_units}
+copy_columns = ["Dataflow / Dataset", "Theme", "Indicator Section", 
+                "Table query"]
+
+for ind in extra_inds:
+    for column in copy_columns:
+        ind[column] = copy_data[ind["STAT_UNIT"]][column]
+        
+extra = pd.DataFrame([ind for ind in all_indicators 
+                           if ind["key"] in extra_keys])
+extra["Indicator ID"] = extra["short_key"]
+extra.set_index("Indicator ID", drop=False, inplace=True)
+combined = uis_dictionary.append(extra)
+
+
+# 10. Save the dictionary as CSV and json
+cache.df_to_csv("combined indicators", combined)
+cache.df_to_json("combined indicators", combined)
+
+"""
+
+
 #json = uis_dictionary.to_json(orient="index")
 uis_dictionary.to_json(cache.file("uis_dictionary", fmt="json"), orient="index")
 uis_dictionary.to_csv(cache.file("uis_dictionary", fmt="csv"))
@@ -358,7 +422,7 @@ not_in_api = uis_dictionary[~uis_dictionary["sdmx_key"].isin(full_sdmx_keys)]
 # /TODO: Check if there is actually any data for these. Add them to the final dictionary anyway
 # There is actual data for these indicators. They should be in the final dictionary.
 
-
+"""
 
 """ Removed all duplicates by abb_sdmx_key.
     
@@ -513,11 +577,11 @@ When I add PT to the list being removed then there are 57 dups
 Try to fix the dups by replacing the 2nd dup with its non-removed value
 
 
-TODO: for publication of the py tools, include a cached list of all indicators,
+/TODO: for publication of the py tools, include a cached list of all indicators,
 and a function to update the list. It probably won't change much until
 there is a new version of the API.
 
-TODO: consider storing and manipulating indicator information in a pandas
+X TODO: consider storing and manipulating indicator information in a pandas
 dataframe instead - will want to save it to a CSV afterwards.
 
 
