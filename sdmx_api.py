@@ -1,14 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-Request data from an SDMX API and return it in a convenient
-'indicator-country-year' JSON or Pandas dataframe format.
+Request data from an SDMX API 
 
-This has been designed for use with the uis api
-
-
-Functions that wrap requests to the UIS data API
-Currently contains fairly low level functions that simply convert a 
-python function call to a request to the API and return the data.
+This has been designed for use with the UNESCO Institute of Statistics API
+but hopefully works with others too
 
     
 @author: scameron
@@ -18,10 +13,11 @@ import inflection
 import requests
 from urllib.parse import urljoin
 import logging as lg
-from collections import defaultdict, Counter
+from collections import defaultdict
 lg.basicConfig(level=lg.DEBUG)
-LONG = object()
-WIDE = object()
+
+class NoDataException(Exception):
+    pass
 
 class Filter(object):
     """ Class for managing the dimensions that make up an SDMX 'indicator',
@@ -120,6 +116,7 @@ class Api(object):
         if dimensions:
             self.filter = Filter(dimensions)
         self.verification = True
+        self.response = None
         
     def get(self, spec=None, params=None):
         """ Forms a URL from the filter specification and submits a request
@@ -132,7 +129,8 @@ class Api(object):
         params["format"] = "sdmx-json"
         params["subscription-key"] = self.subscription_key
         lg.info("Api.get \nurl:%s \nparams:%s", url, params)
-        return requests.get(url, params=params, verify=self.verification).json()
+        self.response = requests.get(url, params=params, verify=self.verification)
+        return self.response.json()
     
     def query(self, **kwargs):
         """ Convenience function for querying the API. Accepts any parameter
@@ -142,19 +140,13 @@ class Api(object):
         spec, remainder = self.filter.extract_dims_and_remainder(kwargs, False)
         return self.get(spec, remainder)
     
-    def icy_query(self, **kwargs):
-        """ Query the API and return data in indicator-country-year json
-        format. """
-        message = self.query(dimension_at_observation="AllDimensions",
-                             **kwargs)
-        return sdmx_to_icy(message)
         
     def get_dimension_information(self, spec=None):
         """ Get the dimension information from the API for the given spec """
         params = {"detail": "serieskeysonly", 
                  "dimension_at_observation": "AllDimensions"}
         message = self.get(spec, params)
-        return message["structure"]["dimensions"]["observation"]
+        return self.get_dimensions(message)
         
     def get_filter(self):
         """ Get the list of dimensions from the API in the right order """
@@ -208,151 +200,38 @@ class Api(object):
         else:
             yield determined
         
-def get_filter_from_message(message):
-    """ Returns a list of indicator dimensions from a message
-    containing SDMX data """
-    dim_list = message["structure"]["dimensions"]["observation"]
-    return Filter([d["id"] for d in dim_list])
-
-
-    
-def parse_attributes(message, most_common_attributes, abbreviate=True):
-    """ Extract a dictionary of attributes for the recorded observations.
-    Where only one value for each attribute is recorded, this goes in the metadata
-    Where multiple values are recorded, find the most common value and
-    record data points that deviate from this value.
-    """
-    attributes = message["structure"]["attributes"]["observation"]
-    r = {}
-    for attribute, most_common in zip(attributes, most_common_attributes):
-        name = attribute["name"]
-        values = attribute["values"]
-        if len(values) == 1:
-            value = values[0]
-        else:
-            # If there is more than one value, use the most common
-            value = values[most_common]
-        r[name] = {
-                "description": attribute["description"],
-                "value": value["name"]
-                }
-        if "description" in value:
-            r[name]["value_description"] = value["description"]
-    if abbreviate:
-        return abbreviate_attributes(r)
-    else:
-        return r
-    
-def abbreviate_attributes(att_dict):
-    r = {}
-    for k, v in att_dict.items():
-        new_key = "{} ({})".format(k, v["description"])
-        if "value_description" in v:
-            new_value = "{} ({})".format(v["value"], v["value_description"])
-        else:
-            new_value = v["value"]
-        r[new_key] = new_value
-    return r
-
-def identify_most_common_attributes(message):
-    observations = message["dataSets"][0]["observations"]
-    attributes = message["structure"]["attributes"]["observation"]
-    def gen():
-        for i in range(len(attributes)):
-            counter = Counter(obs[i+1] for obs in observations.values())
-            yield counter.most_common(1)[0][0]
-    
-    return list(gen())
-
-def sdmx_to_icy(message, include_metadata=True):
-    """ Convert an SDMX message containing data to indicator, country, year 
-    json format. Optionally, the format can contain metadata and notes. 
-    TODO: check if there are cases when >1 dataset is returned! 
-    TODO: add the full indicator metadata at the end of the message if meta=True
-    """
-    observations = message["dataSets"][0]["observations"]
-    dimensions = message["structure"]["dimensions"]["observation"]
-    attributes = message["structure"]["attributes"]["observation"]
-    filt = Filter([d["id"] for d in dimensions])
-    
-    # Return an ind: {country: {year: value}} nested dictionary
-    r = defaultdict(lambda: defaultdict(dict))
-    indicator_metadata = {}
-    
-    # Identify the most common attributes
-    most_common_attributes = identify_most_common_attributes(message)
-    deviations = []
-    for observation_key, observation_value in observations.items():
-        # We convert a numberical key like 0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0
-        # into a dictionary of dimensions and then back into a more readable
-        # string like NERA.PT.M..., 
-        dim_dict = {}
-        dim_names_dict = {}
-        for key_value, dimension in zip(observation_key.split(":"), dimensions):
-            dimension_id = dimension["id"]
-            value_dict = dimension["values"][int(key_value)]
-            dim_dict[dimension_id] = value_dict["id"]
-            dim_names_dict[dimension["name"]] = value_dict["name"]
-        indicator_id = filt.dict_to_key(dim_dict)
-        indicator_metadata[indicator_id] = dim_names_dict
-        # TODO: remove the ref area and time period from the metadata
-        ref_area = dim_dict["REF_AREA"]
-        time_period = dim_dict["TIME_PERIOD"]
-        r[indicator_id][ref_area][time_period] = observation_value[0]
-        for attribute, observed_attribute, most_common in zip(attributes, observation_value[1:], most_common_attributes):
-            if observed_attribute != most_common:
-                value = attribute["values"][observed_attribute]
-                deviation_info = {"indicator": indicator_id, 
-                                   "country": ref_area, 
-                                   "year": time_period, 
-                                   attribute["name"]: value["name"]}
-                if "description" in value:
-                    deviation_info["value_description"] = value["description"]
-                deviations.append(deviation_info)
-
-    if include_metadata:
-        attributes = parse_attributes(message, most_common_attributes)
-        r["metadata"] = {
-                "indicators": indicator_metadata,
-                "attributes": attributes,
-                "exceptions": deviations
-                }
-    return r
-    
-def sdmx_to_df(message):
-    """ Convert a UIS SDMX message containing data to a pandas dataframe
-        The dataframe will be structured in long format:
-        ref_area | time_period | indicator | value in columns
-        """
+    def get_observations(self, message):
+        try:
+            r = message["dataSets"][0]["observations"]
+            list(r)[0]   # Make sure it contains at least one key-value
+            return r
+        except (KeyError, IndexError):
+            raise NoDataException("No observations" + self.response_text())
+            # TODO: add the URL queried and the content of the message
         
-     
+    def get_dimensions(self, message):
+        try:
+            return message["structure"]["dimensions"]["observation"]
+        except KeyError:
+            raise NoDataException("No dimensions found in message"
+                                  + self.response_text())
+            # TODO: add the URL queried and the content of the message
+    
+    def response_info(self):
+        r = self.response
+        return {
+                "URL": r.request.url,
+                "path URL": r.request.path_url,
+                "response": r.text
+                }               
+        
+    def response_text(self):
+        return "\n" + "\n".join("{k}: {v}".format(k, v) 
+                                for k, v in self.response_info.items())
+
         
 """
-TODO:
-- consider functions to reshape dataframes:
-    - TIME_PERIOD: ref_area | indicator | 1995 | 1996 etc. for 1+ indicators
-    - STAT_UNIT: unit" -- wide: country | year | NERA | NARA etc. for 1+ years
-    - "combined" -- Combined wide: country | NERA_1995 | NERA_1996 etc. | NARA_1995 | NARA_1996...
-    
-(This should cover most cases. Rarely want countries as column heading)
-Note hdf offers a way of progressively appending bits of data to a single
-dataframe on disk http://pandas-docs.github.io/pandas-docs-travis/user_guide/io.html#table-format
-
-- make main functions into a class that allows user to set subscription-key, e.g.
-import uis_api
-api = uis_api.Api(subscription_key="...")
-
-
-Note, no longer using these but might be useful for querying dataflow...
-defaults = {
-    "data": {},
-    "dataflow": {"references": "datastructure"}
-}
-    
-templates = {
-    "data": "data/UNESCO,EDU_NON_FINANCE,3.0/{filters}",
-    "dataflow": "dataflow/UNESCO/EDU_NON_FINANCE/latest"
-}
-
+Note, dimension_at_observation="AllDimensions" is usually needed but
+not set by default. Consider adding this as a default.
 
 """    
