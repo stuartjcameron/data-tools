@@ -8,7 +8,8 @@ in the database.
 """
 
 import sdmx_api
-import translate_sdmx
+from sdmx_response import METADATA
+#import translate_sdmx
 import csv
 from itertools import permutations
 try:
@@ -42,8 +43,7 @@ UIS_DIMENSIONS = [
            "COUNTRY_ORIGIN",
            "REGION_DEST",
            "IMM_STATUS",
-           "REF_AREA",
-           "TIME_PERIOD"
+           "REF_AREA"
             ]
 uis_filter = sdmx_api.Filter(UIS_DIMENSIONS)
 INDICATOR_DATA = "input-data/combined indicators.csv"
@@ -136,7 +136,9 @@ class Api(sdmx_api.Api):
             query["start_period"] = start
         if end:
             query["end_period"] = end
-        return self.query(dimension_at_observation="AllDimensions", **query)
+        response = self.query(dimension_at_observation="AllDimensions", **query)
+        response.set_structure(ref_area="REF_AREA", time_period="TIME_PERIOD")
+        return response
     
     def icy_query(self, ind, country=None, start=None, end=None, 
                use_live_country_info=False,
@@ -160,8 +162,8 @@ class Api(sdmx_api.Api):
         
         TODO: allow multiple indicator requests
         """
-        message = self.quick_query(ind, country, start, end, use_live_country_info, **kwargs)
-        result = translate_sdmx.to_icy(message)
+        response = self.quick_query(ind, country, start, end, use_live_country_info, **kwargs)
+        result = response.get_arranged_json(METADATA.ALL)
         r = {}
         for k, v in result.items():
             if k == "metadata":
@@ -193,9 +195,8 @@ class Api(sdmx_api.Api):
         country and indicator databases.
         
         """
-        message = self.quick_query(ind, country, start, end, use_live_country_info, **kwargs)
-        return message
-        df = translate_sdmx.to_df(message)
+        response = self.quick_query(ind, country, start, end, use_live_country_info, **kwargs)
+        df = response.dataframe
         df = add_country_info_to_df(df, {
                 "#country+name+preferred": "country name",
                 "#country+alt+i_en+name+v_unterm": "UN country name",
@@ -237,23 +238,6 @@ def merge_df(left, lookup_func, on, columns=None):
         df.rename(columns=columns, inplace=True)
     return df
 
-def add_info_to_df_OLD(left, right, fields, on):
-    """ Adds information from right dataframe to the left. 
-    Fields can be a list - if column in the 'to' df is to be the same as
-    in the 'from' df - or dict - allowing the column name to change.
-    on should be a column name in the left df and the index of the right df. 
-    
-    No longer used - new version using df.merge instead. Disadvantage is that it doesn't
-    do the merge in place
-    """
-    try:
-        lookup = fields.items()
-    except AttributeError:
-        lookup = zip(fields, fields)
-    for column_in_left, column_in_right in lookup:
-        left[column_in_left] = left[on].apply(right[column_in_right])
-
-    
     
 class Indicator(object):
     """ 

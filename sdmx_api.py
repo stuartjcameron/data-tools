@@ -14,10 +14,9 @@ import requests
 from urllib.parse import urljoin
 import logging as lg
 from collections import defaultdict
+from sdmx_response import SdmxResponse
 lg.basicConfig(level=lg.DEBUG)
 
-class NoDataException(Exception):
-    pass
 
 class Filter(object):
     """ Class for managing the dimensions that make up an SDMX 'indicator',
@@ -43,9 +42,10 @@ class Filter(object):
     def is_dim(self, dim, ind=True):
         return dim.upper() in self.dims(ind)
     
-    def is_complete(self, d):
-        """ Test whether a dictionary represents a complete indicator """
-        return all(d[k] for k in self.dims())
+    #def is_complete(self, d):
+    #    """ Test whether a dictionary represents a complete indicator """
+    #    return all(d[k] for k in self.dims())
+    # no longer used
     
     def extract_dims(self, d, ind=True):
         """ Extract the valid dimensions from a dictionary """
@@ -116,7 +116,7 @@ class Api(object):
         if dimensions:
             self.filter = Filter(dimensions)
         self.verification = True
-        self.response = None
+
         
     def get(self, spec=None, params=None):
         """ Forms a URL from the filter specification and submits a request
@@ -129,8 +129,8 @@ class Api(object):
         params["format"] = "sdmx-json"
         params["subscription-key"] = self.subscription_key
         lg.info("Api.get \nurl:%s \nparams:%s", url, params)
-        self.response = requests.get(url, params=params, verify=self.verification)
-        return self.response.json()
+        response = requests.get(url, params=params, verify=self.verification)
+        return SdmxResponse(response)
     
     def query(self, **kwargs):
         """ Convenience function for querying the API. Accepts any parameter
@@ -145,8 +145,9 @@ class Api(object):
         """ Get the dimension information from the API for the given spec """
         params = {"detail": "serieskeysonly", 
                  "dimension_at_observation": "AllDimensions"}
-        message = self.get(spec, params)
-        return self.get_dimensions(message)
+        response = self.get(spec, params)
+        return response.dimensions
+    
         
     def get_filter(self):
         """ Get the list of dimensions from the API in the right order """
@@ -200,38 +201,25 @@ class Api(object):
         else:
             yield determined
         
-    def get_observations(self, message):
-        try:
-            r = message["dataSets"][0]["observations"]
-            list(r)[0]   # Make sure it contains at least one key-value
-            return r
-        except (KeyError, IndexError):
-            raise NoDataException("No observations" + self.response_text())
-            # TODO: add the URL queried and the content of the message
-        
-    def get_dimensions(self, message):
-        try:
-            return message["structure"]["dimensions"]["observation"]
-        except KeyError:
-            raise NoDataException("No dimensions found in message"
-                                  + self.response_text())
-            # TODO: add the URL queried and the content of the message
-    
-    def response_info(self):
-        r = self.response
-        return {
-                "URL": r.request.url,
-                "path URL": r.request.path_url,
-                "response": r.text
-                }               
-        
-    def response_text(self):
-        return "\n" + "\n".join("{k}: {v}".format(k, v) 
-                                for k, v in self.response_info.items())
+
 
         
 """
 Note, dimension_at_observation="AllDimensions" is usually needed but
 not set by default. Consider adding this as a default.
+
+Note, the Filter class was used for making a dictionary of indicators
+but not used at all in basic API queries. The API uses it for very basic
+functions. Consider simplifying.
+
+Also note, time_period is never passed in an API query! start and end
+period are passed instead. time_period is only used in parsing the response,
+and can be found in the response message.
+
+However, it is still necessary to filter out time_period from the list of
+dimensions occasionally, because if we find out the available dimension ids
+by querying the API (rather than hard-coding them), time_period will be included
+(with nothing to indicator it is not usually passed directly...)
+
 
 """    

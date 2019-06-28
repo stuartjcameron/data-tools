@@ -8,7 +8,6 @@ Example: Get adjusted net enrolment rate for Bangladesh and Uganda,
 """
 
 import uis
-import translate_sdmx
 
 #cache = Cache("C:/Users/wb390262/Documents/Miscpy/json")
 
@@ -25,17 +24,18 @@ gpe_codes = ['AF', 'AL', 'BD', 'BJ', 'BT', 'BF', 'BI', 'CV', 'KH', 'CM', 'CF', '
 
 # You can also get the SDMX message directly like this:
 ind2 = uis.Indicator.fuzzy_lookup("rofst 3 f rur")
-raw_message = api.get(ind2.spec,  {"dimension_at_observation": "AllDimensions"})
-df = translate_sdmx.to_df(raw_message)
+response = api.get(ind2.spec,  {"dimension_at_observation": "AllDimensions"})
+response.set_structure(ref_area="REF_AREA", time_period="TIME_PERIOD")
+df = response.dataframe
 df["Indicator"] = df["Indicator key"].apply(lambda k: uis.Indicator(key=k).id)
 
 df2 = api.df_query("rofst 3 f rur")
 #df2.to_csv("ROFST lower secondary rural girls.csv")
 
-gpe_latest = uis.latest_by_country(df[df["REF_AREA"].isin(gpe_codes)])
+gpe_latest = uis.latest_by_country(df2[df["REF_AREA"].isin(gpe_codes)])
 selection = gpe_latest[gpe_latest["REF_AREA"].isin(['AF', 'AL', 'BD', 'BJ', 'BT', 'BF'])]
-to_plot = selection[["REF_AREA", "Value"]].sort_values("Value", ascending=False)
-to_plot.plot.barh(x="REF_AREA")
+to_plot = selection[["country name", "Value"]].sort_values("Value", ascending=False)
+to_plot.plot.barh(x="country name")
 
 #icy = translate_sdmx.to_icy(raw_message)
 
