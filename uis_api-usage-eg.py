@@ -8,65 +8,49 @@ Example: Get adjusted net enrolment rate for Bangladesh and Uganda,
 """
 
 import uis
-
-#cache = Cache("C:/Users/wb390262/Documents/Miscpy/json")
-
-#inds = uis.Indicator.match(stat_unit="ASER")
-
-#inds3 = uis.Indicator.fuzzy_lookup("rofst 3 f rur", shortest=False)
-
+# 1. Initialize the API
 api = uis.Api(subscription_key="8be270194d6444189bdde1a7b2666911")
-api.verification = False
-gpe_codes = ['AF', 'AL', 'BD', 'BJ', 'BT', 'BF', 'BI', 'CV', 'KH', 'CM', 'CF', 'TD', 'KM', 'CD', 'CG', 'CI', 'DJ', 'DM', 'ER', 'ET', 'GM', 'GE', 'GH', 'GD', 'GN', 'GW', 'GY', 'HT', 'HN', 'KE', 'KI', 'KG', 'LA', 'LS', 'LR', 'MG', 'MW', 'ML', 'MH', 'MR', 'FM', 'MD', 'MN', 'MZ', 'MM', 'NP', 'NI', 'NE', 'NG', 'PK', 'PG', 'RW', 'LC', 'VC', 'ST', 'SN', 'SL', 'SO', 'SS', 'SD', 'TJ', 'TZ', 'TL', 'TG', 'UG', 'UZ', 'VU', 'VN', 'YE', 'ZM', 'ZW', 'TO', 'TV', 'WS', 'SB']
+api.verification = False   # not secure but sometimes needed...
 
-#my_data = api.qquery("rofst 3 f rur", ["Bangladesh", "Uganda", "India"], 2000, 2018)
-#my_data = api.quick_query("rofst 3 f rur", country=gpe_codes)
+# 2. Get data by UIS key using quick_query
+response = api.quick_query("nara.1") 
+print(response.response.url)   # shows the URL that was queried
+print(response.response.text)   # the raw response from the server 
 
-# You can also get the SDMX message directly like this:
-ind2 = uis.Indicator.fuzzy_lookup("rofst 3 f rur")
-response = api.get(ind2.spec,  {"dimension_at_observation": "AllDimensions"})
-response.set_structure(ref_area="REF_AREA", time_period="TIME_PERIOD")
-df = response.dataframe
-df["Indicator"] = df["Indicator key"].apply(lambda k: uis.Indicator(key=k).id)
+# Arrange the data into a more useful json format
+print(response.get_arranged_json(metadata=None)) 
 
-df2 = api.df_query("rofst 3 f rur")
-#df2.to_csv("ROFST lower secondary rural girls.csv")
+# 3. Get disaggregated data in a similar JSON format
+disag_nara = api.icy_query("nara.1", by="sex")
+print(disag_nara['NARA.1.F']["TZ"])  # Female attendance rates in Tanzania
+print(disag_nara["metadata"]["indicators"])      # Indicator metadata
 
-gpe_latest = uis.latest_by_country(df2[df["REF_AREA"].isin(gpe_codes)])
-selection = gpe_latest[gpe_latest["REF_AREA"].isin(['AF', 'AL', 'BD', 'BJ', 'BT', 'BF'])]
-to_plot = selection[["country name", "Value"]].sort_values("Value", ascending=False)
-to_plot.plot.barh(x="country name")
+# 4. Specify countries and get the result as a Pandas dataframe
+countries = ['AF', 'AL', 'BD', 'BJ', 'BT', 'BF', 'BI', 'CV', 'KH', 'CM', 'CF', 'TD', 'KM', 'CD', 'CG', 'CI', 'DJ', 'DM', 'ER', 'ET', 'GM', 'GE', 'GH', 'GD', 'GN', 'GW', 'GY', 'HT', 'HN', 'KE', 'KI', 'KG', 'LA', 'LS', 'LR', 'MG', 'MW', 'ML', 'MH', 'MR', 'FM', 'MD', 'MN', 'MZ', 'MM', 'NP', 'NI', 'NE', 'NG', 'PK', 'PG', 'RW', 'LC', 'VC', 'ST', 'SN', 'SL', 'SO', 'SS', 'SD', 'TJ', 'TZ', 'TL', 'TG', 'UG', 'UZ', 'VU', 'VN', 'YE', 'ZM', 'ZW', 'TO', 'TV', 'WS', 'SB']
+out_of_school = api.df_query("ROFST.1.cp", by="sex", country=countries)
+latest = uis.latest_by_country(out_of_school)
+print(latest[latest["REF_AREA"] == "TZ"][["TIME_PERIOD", "SEX", "Value"]])
 
-#icy = translate_sdmx.to_icy(raw_message)
+# 5. Use fuzzy lookup to explore what indicators are available
+I = uis.Indicator
+print(I.fuzzy_lookup("out of school"))  # get the main indicators on rate of out of school
+print(I.fuzzy_lookup("out of school number")) # numbers OOS instead of rates
+print(I.fuzzy_lookup("out of school", by="sex")) 
+print(I.fuzzy_lookup("rofst.1.cp", uis.Indicator.SUB))  # include 'child' indicators 
+print(I.fuzzy_lookup("rofst.1.cp", uis.Indicator.ALL))  # include all related indicators
 
-#oos = api.quick_query("rofst 2", gpe_codes)
+# wealth_quintile is only available for household survey based indicators
+s = I.fuzzy_lookup("primary out of school", by="wealth_quintile")
 
-def defaultdict_to_dict(d):
-    if isinstance(d, dict):
-        return {k: defaultdict_to_dict(v) for k, v in d.items()}
-    else:
-        return d
-    
-"""
-TODO: Consider ways of getting multiple dimensions 
-e.g. 
-df = api.df_query("rofst+") -- to get all indicators relating to rofst
-df = api.df_query("rofst", by=["sex", "level"]) -- to get the given disaggregations only
+# List the full labels
+for indicator in s:
+    print("Indicator {}: {}".format(indicator.id, indicator.label))
 
-TODO: convenient plot wrappers with common disaggregations
+# Now look these up 
+oos_by_wealth = api.df_query(s)
+latest = uis.latest_by_country(oos_by_wealth)
 
-TODO: throw errors when:
-    - indicator / country not found
-    - tried to process a message but no data was returned (state what URL was queried)
-
-
-Notes
-2019.06.19 something seems a bit wrong with the API - no data for stat_unit
-ROFST - is the rate of OOSC being stored somewhere else?!
-https://api.uis.unesco.org/sdmx/data/UNESCO,EDU_NON_FINANCE,3.0/ROFST.....................?format=sdmx-compact-2.1&locale=en&subscription-key=8be270194d6444189bdde1a7b2666911
-
-API seems unreliable today - also returning no data for ROFST_PHH sometimes
-
-Code above is not working at present.
-"""
-
+# Plot the latest for Tanzania
+tz = latest.query('REF_AREA == "TZ" and WEALTH_QUINTILE != "_T"')
+print("Data on {Indicator Label - EN} for {UN country name} ({region}), {TIME_PERIOD}".format(**tz.iloc[0]))
+tz.plot.bar(x="WEALTH_QUINTILE", y="Value")

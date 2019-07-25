@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 """
 Overkill class for creating sets of binary flags to pass to functions
+Pretty much duplicates enum.Flag
 
 Example usage:
    
-ANIMALS = Flag(["cat", "dog", "cow"])
+ANIMALS = ConstFlag(["cat", "dog", "cow"])
 pets = ANIMALS.DOG | ANIMALS.CAT
 pets.DOG  # True
 pets.CAT  # True

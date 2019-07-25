@@ -73,6 +73,9 @@ class Filter(object):
             return "." * (len(self.dims(ind)) - 1)
             
     def key_to_dict(self, key, ind=True):
+        return dict(zip(self.dims(ind), key.split(".")))
+        
+    def key_to_dict_old(self, key, ind=True):
         """ Returns a dict based on an SDMX key """
         return self.extract_dims(dict((zip(self.all_dims, key.split(".")))))
     

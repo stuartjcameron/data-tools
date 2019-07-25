@@ -14,6 +14,13 @@ def endless_defaultdict():
     return defaultdict(endless_defaultdict)
 
 
+def defaultdict_to_dict(d):
+    if isinstance(d, dict):
+        return {k: defaultdict_to_dict(v) for k, v in d.items()}
+    else:
+        return d
+    
+
 class cached_property(object):
     """
     A property that is only computed once per instance and then replaces itself
@@ -21,8 +28,8 @@ class cached_property(object):
     
     Simplified from following source
     Source: https://github.com/bottlepy/bottle/commit/fa7733e075da0d790d809aa3d2f53071897e6f76
-    """  # noqa
-
+    """  
+    
     def __init__(self, func):
         self.__doc__ = getattr(func, "__doc__")
         self.func = func
@@ -42,7 +49,7 @@ class cached_gen(object):
     
     Simplified from following source
     Source: https://github.com/bottlepy/bottle/commit/fa7733e075da0d790d809aa3d2f53071897e6f76
-    """  # noqa
+    """  
 
     def __init__(self, func):
         self.__doc__ = getattr(func, "__doc__")
@@ -178,6 +185,7 @@ class SdmxResponse(object):
             r["Indicator key"] = r[self.indicator_dimensions].apply(".".join, axis=1)
         return r
     
+    
     @cached_property
     def indicator_metadata(self):
         """ Return names and descriptions of each of the dimensions """
@@ -188,7 +196,7 @@ class SdmxResponse(object):
             use = lambda d: True
         
         for observation_key in self.data.keys():
-            zipped = zip(self.dimensions, key_to_list(observation_key))
+            zipped = list(zip(self.dimensions, key_to_list(observation_key)))
             key_string = ".".join(d["values"][v]["id"] for d, v in zipped if use(d))
             if not key_string in r:
                 r[key_string] = {d["name"]: d["values"][v]["name"] for d, v in zipped if use(d)}
@@ -253,26 +261,28 @@ class SdmxResponse(object):
     
     @cached_property
     def deviations(self):
-        """ A dictionary of observations that have attributes deviating from
-        the most common values. """
+        """ 
+        A dictionary of observations that have attributes deviating from
+        the most common values. 
+        """
         r = endless_defaultdict()
         for observation_key, observation_value in self.data.items():
             if self.structured:
                 i, c, y = self.parse_key(observation_key)
-                d = r[i][c][y]
+                d = lambda: r[i][c][y]
             else:
-                d = r[self.parse_key(observation_key)]
+                d = lambda: r[self.parse_key(observation_key)]
             z = zip(self.attributes, 
                     observation_value[1:], 
                     self.most_common_attribute_numbers)
             for attribute, observed_attribute, most_common in z:
                 if observed_attribute != most_common:
                     value = attribute["values"][observed_attribute]
-                    d[attribute["name"]] = value["name"]
+                    d()[attribute["name"]] = value["name"]
                     if "description" in value:
                         key = "{} description".format(attribute["name"])
-                        d[key] = value["description"]
-        return r
+                        d()[key] = value["description"]
+        return defaultdict_to_dict(r)
     
     
     def get_metadata(self, include=METADATA.ALL):
