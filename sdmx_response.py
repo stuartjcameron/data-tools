@@ -235,8 +235,8 @@ class SdmxResponse(object):
                             zip(self.dimensions, key_to_list(numerical_key)))
 
 
-    def get_arranged_json(self, metadata=METADATA.ALL):
-        """ Convert an SDMX response containing data to a hierarchical json
+    def get_nested(self, metadata=METADATA.ALL):
+        """ Convert an SDMX response containing data to a hierarchical 
         format with indicators, countries (ref_area), and years (time_period)
         as keys in nested dictionaries.
         

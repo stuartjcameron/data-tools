@@ -201,7 +201,7 @@ class Response(SdmxResponse):
         self.super.__init__(response)
         self.set_structure(ref_area="REF_AREA", time_period="TIME_PERIOD")
         
-    def get_arranged_json(self, metadata=METADATA.ALL):
+    def get_nested(self, metadata=METADATA.ALL):
         def adjust_key(k):
             if k != "metadata":
                 try:
@@ -210,7 +210,7 @@ class Response(SdmxResponse):
                     pass
             return k
         
-        r = self.super.get_arranged_json(metadata)
+        r = self.super.get_nested(metadata)
         r = {adjust_key(k): v for k, v in r.items()}
         if metadata:
             m = r["metadata"]

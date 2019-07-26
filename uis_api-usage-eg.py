@@ -17,11 +17,11 @@ response = api.query("nara.1")
 print(response.response.url)   # shows the URL that was queried
 print(response.response.text)   # the raw response from the server 
 
-# Arrange the data into a more useful json format
-print(response.get_arranged_json(metadata=None)) 
+# Arrange the data into a more useful hierarchical format
+print(response.get_nested(metadata=None)) 
 
 # 3. Get disaggregated data in JSON format
-disag_nara = api.query("nara.1", by="sex").get_arranged_json()
+disag_nara = api.query("nara.1", by="sex").get_nested()
 print(disag_nara['NARA.1.F']["TZ"])  # Female attendance rates in Tanzania
 print(disag_nara["metadata"]["indicators"])      # Indicator metadata
 
@@ -34,7 +34,7 @@ print(latest[latest["REF_AREA"] == "TZ"][["TIME_PERIOD", "SEX", "Value"]])
 # 4b. 2nd example of this
 countries = ['AF', 'AL', 'BD', 'BJ', 'BT', 'BF', 'BI', 'CV', 'KH', 'CM', 'CF', 'TD', 'KM', 'CD', 'CG', 'CI', 'DJ', 'DM', 'ER', 'ET', 'GM', 'GE', 'GH', 'GD', 'GN', 'GW', 'GY', 'HT', 'HN', 'KE', 'KI', 'KG', 'LA', 'LS', 'LR', 'MG', 'MW', 'ML', 'MH', 'MR', 'FM', 'MD', 'MN', 'MZ', 'MM', 'NP', 'NI', 'NE', 'NG', 'PK', 'PG', 'RW', 'LC', 'VC', 'ST', 'SN', 'SL', 'SO', 'SS', 'SD', 'TJ', 'TZ', 'TL', 'TG', 'UG', 'UZ', 'VU', 'VN', 'YE', 'ZM', 'ZW', 'TO', 'TV', 'WS', 'SB']
 response = api.query("ROFST.1.cp", by="sex", countries=countries)
-out_of_school = response.get_arranged_json()
+out_of_school = response.get_nested()
 print(out_of_school['ROFST.1.F.cp']["BD"])  # Female attendance rates in Bangladesh
 print(out_of_school["metadata"]["indicators"])      # Indicator metadata
 latest = uis.latest_by_country(response.dataframe)

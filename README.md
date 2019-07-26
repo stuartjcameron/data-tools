@@ -19,17 +19,18 @@ api = uis.Api(subscription_key="your-key-here")
 response = api.query("nara.1")   # we use the UIS indicator ID
 print(response.response.url)   # shows the URL that was queried
 print(response.response.text)   # the raw response from the server 
-print(response.get_arranged_json(metadata=None))  # a more useful JSON format
+print(response.get_nested(metadata=None))  # a more useful JSON format
 ```
 
-3. Get disaggregated data for some countries, in a convenient JSON format
+3. Get disaggregated data for some countries, in a convenient hierarchical 
+format (indicator-country-year)
 ```
 countries = ['AF', 'AL', 'BD', 'BJ', 'BT', 'BF', 'BI', 'CV', 'KH', 'CM', 'CF', 'TD', 'KM', 'CD', 'CG', 'CI', 'DJ', 'DM', 'ER', 'ET', 'GM', 'GE', 'GH', 'GD', 'GN', 'GW', 'GY', 'HT', 'HN', 'KE', 'KI', 'KG', 'LA', 'LS', 'LR', 'MG', 'MW', 'ML', 'MH', 'MR', 'FM', 'MD', 'MN', 'MZ', 'MM', 'NP', 'NI', 'NE', 'NG', 'PK', 'PG', 'RW', 'LC', 'VC', 'ST', 'SN', 'SL', 'SO', 'SS', 'SD', 'TJ', 'TZ', 'TL', 'TG', 'UG', 'UZ', 'VU', 'VN', 'YE', 'ZM', 'ZW', 'TO', 'TV', 'WS', 'SB']
 response = api.query("ROFST.1.cp", by="sex", countries=countries)
-out_of_school = response.get_arranged_json()
-print("\n\nFemale out of school rates in Bangladesh")
+out_of_school = response.get_nested()
+print("\n\nFemale out of school rates in Bangladesh\n")
 for year, value in out_of_school["ROFST.1.F.cp"]["BD"].items():
-    print("{}.......{}".format(year, value))
+    print("{}{:.>20.1f}%".format(year, float(value)))
 print("\n\nIndicator metadata:")
 print(out_of_school["metadata"]["indicators"])
 
