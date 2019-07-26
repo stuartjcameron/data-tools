@@ -1,6 +1,6 @@
 # data-tools
 
-Unofficial python modules for accessing the [UNESCO Institute for Statistics](http://uis.unesco.org/)
+Python 3 modules for accessing the [UNESCO Institute for Statistics](http://uis.unesco.org/)
  [API](https://apiportal.uis.unesco.org/)
  to get international education statistics.
 
