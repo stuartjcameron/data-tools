@@ -25,10 +25,19 @@ disag_nara = api.query("nara.1", by="sex").get_arranged_json()
 print(disag_nara['NARA.1.F']["TZ"])  # Female attendance rates in Tanzania
 print(disag_nara["metadata"]["indicators"])      # Indicator metadata
 
-# 4. Specify some countries and get the result as a Pandas dataframe
+# 4a. Specify some countries and get the result as a Pandas dataframe
 countries = ['AF', 'AL', 'BD', 'BJ', 'BT', 'BF', 'BI', 'CV', 'KH', 'CM', 'CF', 'TD', 'KM', 'CD', 'CG', 'CI', 'DJ', 'DM', 'ER', 'ET', 'GM', 'GE', 'GH', 'GD', 'GN', 'GW', 'GY', 'HT', 'HN', 'KE', 'KI', 'KG', 'LA', 'LS', 'LR', 'MG', 'MW', 'ML', 'MH', 'MR', 'FM', 'MD', 'MN', 'MZ', 'MM', 'NP', 'NI', 'NE', 'NG', 'PK', 'PG', 'RW', 'LC', 'VC', 'ST', 'SN', 'SL', 'SO', 'SS', 'SD', 'TJ', 'TZ', 'TL', 'TG', 'UG', 'UZ', 'VU', 'VN', 'YE', 'ZM', 'ZW', 'TO', 'TV', 'WS', 'SB']
 out_of_school = api.query("ROFST.1.cp", by="sex", country=countries).dataframe
 latest = uis.latest_by_country(out_of_school)
+print(latest[latest["REF_AREA"] == "TZ"][["TIME_PERIOD", "SEX", "Value"]])
+
+# 4b. 2nd example of this
+countries = ['AF', 'AL', 'BD', 'BJ', 'BT', 'BF', 'BI', 'CV', 'KH', 'CM', 'CF', 'TD', 'KM', 'CD', 'CG', 'CI', 'DJ', 'DM', 'ER', 'ET', 'GM', 'GE', 'GH', 'GD', 'GN', 'GW', 'GY', 'HT', 'HN', 'KE', 'KI', 'KG', 'LA', 'LS', 'LR', 'MG', 'MW', 'ML', 'MH', 'MR', 'FM', 'MD', 'MN', 'MZ', 'MM', 'NP', 'NI', 'NE', 'NG', 'PK', 'PG', 'RW', 'LC', 'VC', 'ST', 'SN', 'SL', 'SO', 'SS', 'SD', 'TJ', 'TZ', 'TL', 'TG', 'UG', 'UZ', 'VU', 'VN', 'YE', 'ZM', 'ZW', 'TO', 'TV', 'WS', 'SB']
+response = api.query("ROFST.1.cp", by="sex", countries=countries)
+out_of_school = response.get_arranged_json()
+print(out_of_school['ROFST.1.F.cp']["BD"])  # Female attendance rates in Bangladesh
+print(out_of_school["metadata"]["indicators"])      # Indicator metadata
+latest = uis.latest_by_country(response.dataframe)
 print(latest[latest["REF_AREA"] == "TZ"][["TIME_PERIOD", "SEX", "Value"]])
 
 # 5. Use fuzzy lookup to explore what indicators are available

@@ -22,17 +22,27 @@ print(response.response.text)   # the raw response from the server
 print(response.get_arranged_json(metadata=None))  # a more useful JSON format
 ```
 
-3. Get disaggregated data for some countries
+3. Get disaggregated data for some countries, in a convenient JSON format
 ```
 countries = ['AF', 'AL', 'BD', 'BJ', 'BT', 'BF', 'BI', 'CV', 'KH', 'CM', 'CF', 'TD', 'KM', 'CD', 'CG', 'CI', 'DJ', 'DM', 'ER', 'ET', 'GM', 'GE', 'GH', 'GD', 'GN', 'GW', 'GY', 'HT', 'HN', 'KE', 'KI', 'KG', 'LA', 'LS', 'LR', 'MG', 'MW', 'ML', 'MH', 'MR', 'FM', 'MD', 'MN', 'MZ', 'MM', 'NP', 'NI', 'NE', 'NG', 'PK', 'PG', 'RW', 'LC', 'VC', 'ST', 'SN', 'SL', 'SO', 'SS', 'SD', 'TJ', 'TZ', 'TL', 'TG', 'UG', 'UZ', 'VU', 'VN', 'YE', 'ZM', 'ZW', 'TO', 'TV', 'WS', 'SB']
-out_of_school = api.query("ROFST.1.cp", by="sex", countries=countries)
-print(out_of_school['ROFST.1.F.cp']["BD"])  # Female attendance rates in Bangladesh
-print(out_of_school["metadata"]["indicators"])      # Indicator metadata
-latest = uis.latest_by_country(out_of_school)
+response = api.query("ROFST.1.cp", by="sex", countries=countries)
+out_of_school = response.get_arranged_json()
+print("\n\nFemale out of school rates in Bangladesh")
+for year, value in out_of_school["ROFST.1.F.cp"]["BD"].items():
+    print("{}.......{}".format(year, value))
+print("\n\nIndicator metadata:")
+print(out_of_school["metadata"]["indicators"])
+
+```
+
+4. Manipulate the data as a Pandas dataframe
+```
+latest = uis.latest_by_country(response.dataframe)
 print(latest[latest["REF_AREA"] == "TZ"][["TIME_PERIOD", "SEX", "Value"]])
 
 ```
-4. Use fuzzy lookup to explore what indicators are available
+
+5. Use fuzzy lookup to explore what indicators are available
 ```
 I = uis.Indicator
 print(I.fuzzy_lookup("out of school"))  # get the main indicators on rate of out of school
@@ -42,7 +52,8 @@ print(I.fuzzy_lookup("rofst.1.cp", uis.Indicator.SUB))  # include 'child' indica
 print(I.fuzzy_lookup("rofst.1.cp", uis.Indicator.ALL))  # include all related indicators
 ```
 
-5. Find some indicators and then filter the data and make a bar plot
+6. Find some indicators and then filter the data and make a bar plot,
+using pandas
 ```
 # wealth_quintile is only available for household survey based indicators
 s = uis.Indicator.fuzzy_lookup("primary out of school", by="wealth_quintile")
