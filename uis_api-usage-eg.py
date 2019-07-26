@@ -56,5 +56,13 @@ print("Data on {Indicator Label - EN} for {UN country name} ({Region}), {TIME_PE
 tz.plot.bar(x="WEALTH_QUINTILE", y="Value")
 
 # Plot Tanzania and Kenya
-table = latest[latest["WEALTH_QUINTILE"] != "_T"].pivot(index="WEALTH_QUINTILE", columns="UN country name", values="Value")
+def formatted_column(dataframe, format_string):
+    """ Create a new string column using the format template and the other 
+        columns in each row
+    """
+    return dataframe.apply(lambda r: format_string.format(**r), axis=1)
+    
+latest["Country"] = formatted_column(latest, "{UN country name} ({TIME_PERIOD})")
+table = latest[latest["WEALTH_QUINTILE"] != "_T"]
+table = table.pivot(index="WEALTH_QUINTILE", columns="Country", values="Value")
 table.plot.bar()

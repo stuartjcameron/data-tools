@@ -5,7 +5,7 @@ Unofficial python modules for accessing the [UNESCO Institute for Statistics](ht
  to get international education statistics.
 
 
-Example usage (also see uis_api-usage-eg.py)
+Example usage (also see `uis_api-usage-eg.py`)
 
 1. Initialize the API
 ```
@@ -61,14 +61,17 @@ print("Data on {Indicator Label - EN} for {UN country name} ({Region}), {TIME_PE
 tz.plot.bar(x="WEALTH_QUINTILE", y="Value")
 
 # Plot Tanzania and Kenya
-table = latest[latest["WEALTH_QUINTILE"] != "_T"].pivot(index="WEALTH_QUINTILE", columns="UN country name", values="Value")
+table = latest[latest["WEALTH_QUINTILE"] != "_T"]
+table = table.pivot(index="WEALTH_QUINTILE", 
+                    columns="UN country name", 
+                    values="Value")
 table.plot.bar()
 ```
 
 ## Notes
 
-These modules are provided with no guarantees and the author is not associated
-with UNESCO Institute for Statistics.
+These modules are provided with no guarantee of safety or functionality. 
+The author does not work for UNESCO Institute for Statistics.
 
 The modules use the [HDX Python Country Library](https://pypi.org/project/hdx-python-country/)
 to look up country names. It uses fuzzy look-up so "Tanzania", "TZ" etc. are acceptable.
@@ -77,5 +80,9 @@ The file `input-data\combined indicators.csv` lists all of the indicators
 in the UIS education statistics dataflow. The modules allow indicators to be
 referred to either by their Indicator ID (ROFST.1.cp), their "key" (e.g. ROFST.PT.L1._T._T.SCH_AGE_GROUP._T.INST_T._Z._Z._T._T._T._Z._Z._Z._Z._Z.W00.W00._Z
 ) or by a shortened key that can be found in the CSV file (e.g. rofst-1).
+
+The indicators list is based on the [indicator dictionary Excel sheet](http://uis.unesco.org/sites/default/files/documents/uis-data-dictionary-education-statistics.xlsx) 
+(downloaded June 2019 - it may need to be updated). The list was cleaned
+by checking which indicators were actually found in the API.
 
 
