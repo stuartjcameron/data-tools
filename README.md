@@ -1,6 +1,9 @@
 # data-tools
 
-Miscellaneous tools for accessing and analysing education data produced by international organisations.
+A package for accessing the [UNESCO Institute for Statistics](http://uis.unesco.org/)
+ [API](https://apiportal.uis.unesco.org/)
+ to get international education statistics.
+
 
 Example usage:
 
