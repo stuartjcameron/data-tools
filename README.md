@@ -106,7 +106,7 @@ by checking which indicators were actually found in the API.
 
 * [requests](https://pypi.org/project/requests/) - needed to fetch queries
 * [inflection](https://pypi.org/project/inflection/)
-* [pandas](https://pandas.pydata.org/) - queries will work without pandas
-but pandas must be installed to work with dataframes
+* [pandas](https://pandas.pydata.org/) - you can still fetch queries without it,
+but pandas must be installed if you want to manipulate the data as a dataframe
 
 
