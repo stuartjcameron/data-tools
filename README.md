@@ -102,3 +102,11 @@ The indicators list is based on the [indicator dictionary Excel sheet](http://ui
 (downloaded June 2019 - it may need to be updated). The list was cleaned
 by checking which indicators were actually found in the API.
 
+### Dependencies
+
+* [requests](https://pypi.org/project/requests/) - needed to fetch queries
+* [inflection](https://pypi.org/project/inflection/)
+* [pandas](https://pandas.pydata.org/) - queries will work without pandas
+but pandas must be installed to work with dataframes
+
+
