@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 """
 Overkill class for creating sets of binary flags to pass to functions
-Pretty much duplicates enum.Flag
+Pretty much duplicates enum.Flag but has useful .ALL and .NONE settings
 
 Example usage:
    
-ANIMALS = ConstFlag(["cat", "dog", "cow"])
+ANIMALS = Flag("Animals", ["cat", "dog", "cow"])
+or ANIMALS = Flag("Animals", "CAT DOG COW")
 pets = ANIMALS.DOG | ANIMALS.CAT
 pets.DOG  # True
 pets.CAT  # True
@@ -28,18 +29,31 @@ animal_noise(pets)   # miaow, woof
 
 Created on Fri Jun 21 16:18:06 2019
 
-@author: WB390262
+@author: https://github.com/stuartjcameron
 """
 
-class ConstFlag():
-    def __init__(self, attributes):
-        self.attributes = [a.upper() for a in attributes]
+class Flag():
+    """
+    Enum-like flag
+    """
+    def __init__(self, typename, names):
+        self.typename = typename
+        if isinstance(names, str):
+            self.attributes = names.split()            
+        else:
+            self.attributes = [a.upper() for a in names]
         for attr in self.attributes:
-            setattr(self, attr, Attribute(self, [attr]))
-        self.ALL = Attribute(self, self.attributes)
-        self.NONE = Attribute(self, [])
+            setattr(self, attr, FlagAttributes(self, [attr]))
+        self.ALL = FlagAttributes(self, self.attributes)
+        self.NONE = FlagAttributes(self, [])
+
+    def __repr__(self):
+        return "<Flag {}>".format(self.typename)
         
-class Attribute():
+class FlagAttributes():
+    """
+    List of named attributes associated with a Flag
+    """
     def __init__(self, parent, attributes):
         self._attributes = [a.upper() for a in attributes]
         self.parent = parent
@@ -51,7 +65,7 @@ class Attribute():
         
     def __or__(self, other):
         if self.parent == other.parent:
-            return Attribute(self.parent, list(set(self._attributes + other._attributes)))
+            return FlagAttributes(self.parent, list(set(self._attributes + other._attributes)))
         else:
             raise TypeError("Cannot combine flags of different types")
             
@@ -61,5 +75,8 @@ class Attribute():
     def __contains__(self, item):
         return all(getattr(self, a) for a in item._attributes)
         #TODO - allow string contains too
+        
+    def __repr__(self):
+        return "<{}.{}>".format(self.parent.typename, "|".join(self._attributes))
     
     

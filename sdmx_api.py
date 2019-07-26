@@ -2,9 +2,11 @@
 """
 Request data from an SDMX API 
 
-This has been designed for use with the UNESCO Institute of Statistics API
-but hopefully works with others too
+This has been designed for use with the UNESCO Institute of Statistics API.
+It is easiest to use the `uis` module which wraps sdmx_api and sdmx_response
+with more convenient methods.
 
+I hope it will work with other SDMX APIs too but it is not yet tested.
     
 @author: https://github.com/stuartjcameron
 """
@@ -125,6 +127,7 @@ class Api(object):
         if dimensions:
             self.filter = Filter(dimensions)
         self.verification = True
+        self.process_response = SdmxResponse
 
         
     def get(self, spec=None, params=None):
@@ -139,7 +142,7 @@ class Api(object):
         params["subscription-key"] = self.subscription_key
         lg.info("Api.get \nurl:%s \nparams:%s", url, params)
         response = requests.get(url, params=params, verify=self.verification)
-        return SdmxResponse(response)
+        return self.process_response(response)
     
     def query(self, **kwargs):
         """ Convenience function for querying the API. Accepts any parameter
@@ -148,7 +151,7 @@ class Api(object):
         """
         spec, remainder = self.filter.extract_dims_and_remainder(kwargs, False)
         return self.get(spec, remainder)
-    
+        
         
     def get_dimension_information(self, spec=None):
         """ Get the dimension information from the API for the given spec """

@@ -10,7 +10,10 @@ import os
 import sdmx_api
 import string
 import re
+from sdmx_response import SdmxResponse
 from sdmx_response import METADATA
+from sdmx_response import cached_property
+
 #import translate_sdmx
 import csv
 from itertools import permutations, chain
@@ -120,11 +123,14 @@ class Api(sdmx_api.Api):
     """
 
     def __init__(self, subscription_key):
-        super(Api, self).__init__(base=UIS_BASE,
+        self.super = super(Api, self)
+        self.super.__init__(base=UIS_BASE,
                                 subscription_key=subscription_key,
                                 dimensions=UIS_DIMENSIONS)
+        self.process_response = Response
         
-    def quick_query(self, ind=None, country=None, start=None, end=None,
+        
+    def query(self, ind=None, country=None, start=None, end=None,
                     by=None, disag_only=False, 
                     use_live_country_info=False, **kwargs):
         if ind:
@@ -144,9 +150,9 @@ class Api(sdmx_api.Api):
             query["start_period"] = start
         if end:
             query["end_period"] = end
-        response = self.query(dimension_at_observation="AllDimensions", **query)
-        response.set_structure(ref_area="REF_AREA", time_period="TIME_PERIOD")
-        return response
+        return self.super.query(dimension_at_observation="AllDimensions", **query)
+        #response.set_structure(ref_area="REF_AREA", time_period="TIME_PERIOD")
+        #return response
     
     def icy_query(self, ind=None, country=None, start=None, end=None, 
                   by=None, disag_only=False,
@@ -223,6 +229,51 @@ class Api(sdmx_api.Api):
                 'Theme'
                 ])
         return df
+
+
+class Response(SdmxResponse):
+    """
+    Extends the SdmxResponse class to add some specific processing for the 
+    UIS API response.
+    """
+    
+    def __init__(self, response):
+        self.super = super(Response, self)
+        self.super.__init__(response)
+        self.set_structure(ref_area="REF_AREA", time_period="TIME_PERIOD")
+        
+    def get_arranged_json(self):
+        def adjust_key(k):
+            if k != "metadata":
+                try:
+                    return Indicator(key=k).id
+                except:
+                    pass
+            return k
+        
+        r = self.super.get_arranged_json(METADATA.ALL)
+        r = {adjust_key(k): v for k, v in r.items()}
+        m = r["metadata"]
+        if "indicators" in m:
+            m["indicators"] = {adjust_key(k): v for k, v in m["indicators"].items()}
+        return r
+    
+    @cached_property
+    def dataframe(self):
+        df = self.super.dataframe
+        df = add_country_info_to_df(df, {
+                "#country+name+preferred": "country name",
+                "#country+alt+i_en+name+v_unterm": "UN country name",
+                "#region+name+preferred+sub": "region"                
+                })
+        df = add_indicator_info_to_df(df, [
+                'Indicator Label - EN', 
+                'Indicator Section', 
+                'Table query', 
+                'Theme'
+                ])
+        return df
+        
         
         
 def add_country_info_to_df(df, columns=None):

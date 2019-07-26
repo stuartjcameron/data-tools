@@ -3,12 +3,10 @@
 Class for conveniently extracting information from an SDMX request response object
 and raising helpful error messages when the information isn't there.
 
-Created on Thu Jun 20 16:26:17 2019
-
 @author: https://github.com/stuartjcameron
 """
 from collections import defaultdict, Counter
-from const_flag import ConstFlag
+from const_flag import Flag
 
 def endless_defaultdict():
     return defaultdict(endless_defaultdict)
@@ -19,6 +17,12 @@ def defaultdict_to_dict(d):
         return {k: defaultdict_to_dict(v) for k, v in d.items()}
     else:
         return d
+
+
+
+def key_to_list(key):
+    """ Convert an SDMX numerical key like 0:0:0... to a list of integers """
+    return [int(part) for part in key.split(":")]
     
 
 class cached_property(object):
@@ -64,8 +68,7 @@ class cached_gen(object):
 class NoDataException(Exception):
     pass
 
-METADATA = ConstFlag(["dimensions", "attributes", "attribute_descriptions",
-                 "exceptions"])
+METADATA = Flag("Metadata", "DIMENSIONS ATTRIBUTES ATTRIBUTE_DESCRIPTIONS EXCEPTIONS")
 
 class SdmxResponse(object):
     def __init__(self, response):
@@ -296,13 +299,6 @@ class SdmxResponse(object):
         if include.EXCEPTIONS:
             r["exceptions"] = self.deviations
         return r
-
-
-
-
-def key_to_list(key):
-    """ Convert an SDMX numerical key like 0:0:0... to a list of integers """
-    return [int(part) for part in key.split(":")]
 
 
 

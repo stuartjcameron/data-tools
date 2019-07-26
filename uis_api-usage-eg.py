@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Jun  3 09:23:07 2019
-
 Some examples of using the SDMX API for accessing the UNESCO
 Institute for Statistics database to get education data.
 
@@ -10,25 +8,26 @@ Institute for Statistics database to get education data.
 
 import uis
 # 1. Initialize the API
-api = uis.Api(subscription_key="your-key-here")
+subscription_key = "your-key-here"
+api = uis.Api(subscription_key)
 api.verification = False   # not secure but sometimes needed...
 
 # 2. Get data by UIS key using quick_query
-response = api.quick_query("nara.1") 
+response = api.query("nara.1") 
 print(response.response.url)   # shows the URL that was queried
 print(response.response.text)   # the raw response from the server 
 
 # Arrange the data into a more useful json format
 print(response.get_arranged_json(metadata=None)) 
 
-# 3. Get disaggregated data in a similar JSON format
-disag_nara = api.icy_query("nara.1", by="sex")
+# 3. Get disaggregated data in JSON format
+disag_nara = api.query("nara.1", by="sex").get_arranged_json()
 print(disag_nara['NARA.1.F']["TZ"])  # Female attendance rates in Tanzania
 print(disag_nara["metadata"]["indicators"])      # Indicator metadata
 
-# 4. Specify countries and get the result as a Pandas dataframe
+# 4. Specify some countries and get the result as a Pandas dataframe
 countries = ['AF', 'AL', 'BD', 'BJ', 'BT', 'BF', 'BI', 'CV', 'KH', 'CM', 'CF', 'TD', 'KM', 'CD', 'CG', 'CI', 'DJ', 'DM', 'ER', 'ET', 'GM', 'GE', 'GH', 'GD', 'GN', 'GW', 'GY', 'HT', 'HN', 'KE', 'KI', 'KG', 'LA', 'LS', 'LR', 'MG', 'MW', 'ML', 'MH', 'MR', 'FM', 'MD', 'MN', 'MZ', 'MM', 'NP', 'NI', 'NE', 'NG', 'PK', 'PG', 'RW', 'LC', 'VC', 'ST', 'SN', 'SL', 'SO', 'SS', 'SD', 'TJ', 'TZ', 'TL', 'TG', 'UG', 'UZ', 'VU', 'VN', 'YE', 'ZM', 'ZW', 'TO', 'TV', 'WS', 'SB']
-out_of_school = api.df_query("ROFST.1.cp", by="sex", country=countries)
+out_of_school = api.query("ROFST.1.cp", by="sex", country=countries).dataframe
 latest = uis.latest_by_country(out_of_school)
 print(latest[latest["REF_AREA"] == "TZ"][["TIME_PERIOD", "SEX", "Value"]])
 
@@ -48,7 +47,7 @@ for indicator in s:
     print("Indicator {}: {}".format(indicator.id, indicator.label))
 
 # Now look these up 
-oos_by_wealth = api.df_query(s)
+oos_by_wealth = api.query(s, country=["Tanzania", "Kenya"]).dataframe
 latest = uis.latest_by_country(oos_by_wealth)
 
 # Plot the latest for Tanzania
