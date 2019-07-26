@@ -53,6 +53,40 @@ lg.info("CWD={}; file path={}".format(os.getcwd(), os.path.dirname(__file__)))
 INDICATOR_DATA = os.path.join(os.path.dirname(__file__), "input-data/combined indicators.csv")
 uis_filter = sdmx_api.Filter(UIS_DIMENSIONS)
 
+# Regexes (can be improved but good enough!)
+NOT_SNAKE = re.compile(r"[^a-z0-9_]")  
+NOT_UPPER_SNAKE = re.compile(r"[^A-Z0-9_]")
+NOT_CAMEL = re.compile(r"[^a-zA-Z0-9]")
+
+def is_snake(s):
+    """ Lower case, contains underscore and only contains a-z, 0-9 and _ """
+    return "_" in s and not NOT_SNAKE.search(s) 
+
+def is_upper_snake(s):
+    """ Upper case, contains underscore and only contains A-Z, 0-9 and _ """
+    return "_" in s and not NOT_UPPER_SNAKE.search(s)
+
+def is_camel_case(s):
+    """ Mixed case and only contains a-z, A-Z, 0-9  """
+    return not(s.islower() or s.isupper() or NOT_CAMEL.search(s))
+
+        
+def header_case(s):
+    """ 
+    Convert snake_case, CAPS_SNAKE_CASE, Title Case, all lower, all upper,
+    and CamelCase to Sentence case
+    Other mixed strings (e.g. "UN country name") will be left as is, to preserve
+    acronyms
+    """
+    if is_snake(s) or is_upper_snake(s):
+        return s.replace("_", " ").capitalize()
+    elif is_camel_case(s):
+        r = re.sub(r"[A-Z]", lambda matched: " " + matched.group(0), s)
+        return r.strip().capitalize()
+    elif s.istitle() or s.islower() or s.isupper():
+        return s.capitalize()
+    return s
+
 
 def get_iso2(s, use_live=False):
     if Country:
@@ -123,7 +157,8 @@ class Api(sdmx_api.Api):
     """
 
     def __init__(self, subscription_key):
-        self.super = super(Api, self)
+        #self.super = super(Api, self)
+        self.super = super()
         self.super.__init__(base=UIS_BASE,
                                 subscription_key=subscription_key,
                                 dimensions=UIS_DIMENSIONS)
@@ -154,82 +189,6 @@ class Api(sdmx_api.Api):
         #response.set_structure(ref_area="REF_AREA", time_period="TIME_PERIOD")
         #return response
     
-    def icy_query(self, ind=None, country=None, start=None, end=None, 
-                  by=None, disag_only=False,
-               use_live_country_info=False,
-               **kwargs):
-        """
-        Query UIS API based on an indicator specification dictionary or string
-        (which will be retrieved using a fuzzy lookup); optionally, country or list
-        of countries (also fetched using fuzzy lookup); and optionally,
-        start and end years.
-        
-        If hdx.location.country is not available, then fuzzy country lookup is not
-        done and the countries can only be specified as a list of ISO2 codes
-        e.g. ["UG", "BD"]
-        
-        If use_live_country_info is True, it will request the hdx country
-        module to get the latest country data from the web. (This slows
-        everything down and country information changes infrequently,
-        so is disabled by default.)
-        
-        Additional arguments will be passed to the API request.
-
-        """
-        def adjust_key(k):
-            if k != "metadata":
-                try:
-                    return Indicator(key=k).id
-                except:
-                    pass
-            return k
-                
-        response = self.quick_query(ind, country, start, end, by, disag_only, use_live_country_info, **kwargs)
-        result = response.get_arranged_json(METADATA.ALL)
-        r = {adjust_key(k): v for k, v in result.items()}
-        m = r["metadata"]
-        if "indicators" in m:
-            m["indicators"] = {adjust_key(k): v for k, v in m["indicators"].items()}
-        return r
-    
-    def df_query(self, ind, country=None, start=None, end=None,
-                 by=None, disag_only=False, use_live_country_info=False, **kwargs):
-        """
-        Query UIS API based on an indicator specification dictionary or string
-        (which will be retrieved using a fuzzy lookup); optionally, country or list
-        of countries (also fetched using fuzzy lookup); and optionally,
-        start and end years.
-        
-        If hdx.location.country is not available, then fuzzy country lookup is not
-        done and the countries can only be specified as a list of ISO2 codes
-        e.g. ["UG", "BD"]
-        
-        If use_live_country_info is True, it will request the hdx country
-        module to get the latest country data from the web. (This slows
-        everything down and country information changes infrequently,
-        so is disabled by default.)
-        
-        Additional arguments will be passed to the API request.
-        
-        Returns a Pandas dataframe with useful information added from the 
-        country and indicator databases.
-        
-        """
-        response = self.quick_query(ind, country, start, end, by, disag_only, use_live_country_info, **kwargs)
-        df = response.dataframe
-        df = add_country_info_to_df(df, {
-                "#country+name+preferred": "country name",
-                "#country+alt+i_en+name+v_unterm": "UN country name",
-                "#region+name+preferred+sub": "region"                
-                })
-        df = add_indicator_info_to_df(df, [
-                'Indicator Label - EN', 
-                'Indicator Section', 
-                'Table query', 
-                'Theme'
-                ])
-        return df
-
 
 class Response(SdmxResponse):
     """
@@ -238,11 +197,12 @@ class Response(SdmxResponse):
     """
     
     def __init__(self, response):
-        self.super = super(Response, self)
+        #self.super = super(Response, self)
+        self.super = super()
         self.super.__init__(response)
         self.set_structure(ref_area="REF_AREA", time_period="TIME_PERIOD")
         
-    def get_arranged_json(self):
+    def get_arranged_json(self, metadata=METADATA.ALL):
         def adjust_key(k):
             if k != "metadata":
                 try:
@@ -251,20 +211,21 @@ class Response(SdmxResponse):
                     pass
             return k
         
-        r = self.super.get_arranged_json(METADATA.ALL)
+        r = self.super.get_arranged_json(metadata)
         r = {adjust_key(k): v for k, v in r.items()}
-        m = r["metadata"]
-        if "indicators" in m:
-            m["indicators"] = {adjust_key(k): v for k, v in m["indicators"].items()}
+        if metadata:
+            m = r["metadata"]
+            if "indicators" in m:
+                m["indicators"] = {adjust_key(k): v for k, v in m["indicators"].items()}
         return r
     
     @cached_property
     def dataframe(self):
         df = self.super.dataframe
         df = add_country_info_to_df(df, {
-                "#country+name+preferred": "country name",
+                "#country+name+preferred": "Country name",
                 "#country+alt+i_en+name+v_unterm": "UN country name",
-                "#region+name+preferred+sub": "region"                
+                "#region+name+preferred+sub": "Region"                
                 })
         df = add_indicator_info_to_df(df, [
                 'Indicator Label - EN', 
@@ -272,9 +233,11 @@ class Response(SdmxResponse):
                 'Table query', 
                 'Theme'
                 ])
+        #df.rename(columns=header_case, inplace=True)
         return df
+    
         
-        
+
         
 def add_country_info_to_df(df, columns=None):
     return merge_df(df, get_country_df, on="REF_AREA", columns=columns)
@@ -360,9 +323,10 @@ class Indicator(object):
     @classmethod
     def lookup(cls, s):
         """ Lookup by key, id, or short key """
-        if isinstance(s, cls):  # Try to lookup something that is already an indicator
-            return s
-        s = s.lower()
+        try:
+            s = s.lower()
+        except AttributeError:
+            return s   # Not a string so just try returning it directly
         if s in cls.keys["key_lower"]:
             return cls(key=s)
         if s in cls.keys["id_lower"]:
@@ -416,13 +380,9 @@ class Indicator(object):
         only indicators that can be disaggregated by one or more of those 
         dimensions will be returned.
         
-        TODO: sort lexicographically by short key parts
         TODO: consider an option to exclude the top level indicator
         when disaggregating
         TODO: refactor to avoid repetition (e.g. match_similar)
-        X TODO: consider when looking for disaggregatable indicators - include
-        only those that can be disaggregated by /all/ of the given dimensions
-        rather than by any one of them. (But this is harder to ascertain.)
         """
         if type(by) not in [str, list] and by not in [cls.SUB, cls.ALL, None]:
             raise TypeError("by must be a string, list, SUB, ALL or None")

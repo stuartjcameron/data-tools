@@ -64,6 +64,7 @@ class cached_gen(object):
             return self
         value = obj.__dict__[self.func.__name__] = list(self.func(obj))
         return value
+
     
 class NoDataException(Exception):
     pass
@@ -163,6 +164,8 @@ class SdmxResponse(object):
         """ Convert an SDMX response containing data to a pandas dataframe
             The dataframe will be structured in long format:
             ref_area | time_period | indicator | value in columns
+            
+            Renames headings using the given function
         """
         import pandas as pd
         dimension_ids = []

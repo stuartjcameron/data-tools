@@ -8,7 +8,7 @@ Institute for Statistics database to get education data.
 
 import uis
 # 1. Initialize the API
-subscription_key = "your-key-here"
+#subscription_key = "your-key-here"
 api = uis.Api(subscription_key)
 api.verification = False   # not secure but sometimes needed...
 
@@ -40,7 +40,7 @@ print(I.fuzzy_lookup("rofst.1.cp", uis.Indicator.SUB))  # include 'child' indica
 print(I.fuzzy_lookup("rofst.1.cp", uis.Indicator.ALL))  # include all related indicators
 
 # wealth_quintile is only available for household survey based indicators
-s = I.fuzzy_lookup("primary out of school", by="wealth_quintile")
+s = uis.Indicator.fuzzy_lookup("primary out of school", by="wealth_quintile")
 
 # List the full labels
 for indicator in s:
@@ -52,5 +52,9 @@ latest = uis.latest_by_country(oos_by_wealth)
 
 # Plot the latest for Tanzania
 tz = latest.query('REF_AREA == "TZ" and WEALTH_QUINTILE != "_T"')
-print("Data on {Indicator Label - EN} for {UN country name} ({region}), {TIME_PERIOD}".format(**tz.iloc[0]))
+print("Data on {Indicator Label - EN} for {UN country name} ({Region}), {TIME_PERIOD}".format(**tz.iloc[0]))
 tz.plot.bar(x="WEALTH_QUINTILE", y="Value")
+
+# Plot Tanzania and Kenya
+table = latest[latest["WEALTH_QUINTILE"] != "_T"].pivot(index="WEALTH_QUINTILE", columns="UN country name", values="Value")
+table.plot.bar()
