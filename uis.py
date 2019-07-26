@@ -4,7 +4,7 @@ Access the UNESCO Institute of Statistics SDMX API, download data
 in a convenient format, and find information on indicators that are available
 in the database.
 
-@author: scameron
+@author: https://github.com/stuartjcameron
 """
 import os
 import sdmx_api

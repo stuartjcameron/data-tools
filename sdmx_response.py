@@ -5,7 +5,7 @@ and raising helpful error messages when the information isn't there.
 
 Created on Thu Jun 20 16:26:17 2019
 
-@author: WB390262
+@author: https://github.com/stuartjcameron
 """
 from collections import defaultdict, Counter
 from const_flag import ConstFlag

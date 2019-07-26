@@ -6,7 +6,7 @@ This has been designed for use with the UNESCO Institute of Statistics API
 but hopefully works with others too
 
     
-@author: scameron
+@author: https://github.com/stuartjcameron
 """
 
 import inflection
@@ -62,7 +62,8 @@ class Filter(object):
         return r, remainder
     
     def dict_to_key(self, d=None, ind=True):
-        """ Returns an SDMX key for the set of dimensions represented
+        """
+        Returns an SDMX key for the set of dimensions represented
         by the dictionary d. If ind=False it may also return ref_area
         and time_period (if these are in the dict)
         """ 
@@ -80,10 +81,12 @@ class Filter(object):
         return self.extract_dims(dict((zip(self.all_dims, key.split(".")))))
     
 def combine_queries(*query_dicts):
-    """ Combine dicts representing indicators or queries into a 
+    """
+    Combine dicts representing indicators or queries into a 
     single dict with multiple values.
     Note this can 'over-query', i.e. return too many results if there
-    is too much difference between the queries. """
+    is too much difference between the queries. 
+    """
     r = defaultdict(set)
     for d in query_dicts:
         for key, value in d.items():
@@ -94,8 +97,10 @@ def combine_queries(*query_dicts):
     return {k: list(v) for k, v in r.items()}
  
 def value_to_filter_string(v):
-    """ Convert None, a number, string or list into a string for 
-    inclusion in an SDMX filter string """
+    """ 
+    Convert None, a number, string or list into a string for 
+    inclusion in an SDMX filter string
+    """
     if v is None:
         return ""
     elif type(v) == list:
@@ -104,7 +109,8 @@ def value_to_filter_string(v):
         return str(v)
 
 def camel(k):
-    """ Appropriately camelize a keyword argument key for inclusion in 
+    """ 
+    Appropriately camelize a keyword argument key for inclusion in 
     an SDMX URL query 
     e.g. start_period => startPeriod 
     """

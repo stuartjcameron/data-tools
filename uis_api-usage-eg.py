@@ -2,14 +2,15 @@
 """
 Created on Mon Jun  3 09:23:07 2019
 
-Example: Get adjusted net enrolment rate for Bangladesh and Uganda,
-2012-16.
-@author: WB390262
+Some examples of using the SDMX API for accessing the UNESCO
+Institute for Statistics database to get education data.
+
+@author: https://github.com/stuartjcameron
 """
 
 import uis
 # 1. Initialize the API
-api = uis.Api(subscription_key="8be270194d6444189bdde1a7b2666911")
+api = uis.Api(subscription_key="your-key-here")
 api.verification = False   # not secure but sometimes needed...
 
 # 2. Get data by UIS key using quick_query
