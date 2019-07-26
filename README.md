@@ -75,6 +75,7 @@ The author does not work for UNESCO Institute for Statistics.
 
 The modules use the [HDX Python Country Library](https://pypi.org/project/hdx-python-country/)
 to look up country names. It uses fuzzy look-up so "Tanzania", "TZ" etc. are acceptable.
+If you don't have the HDX library installed, you need to use the [two-letter country codes](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2).
 
 The file `input-data\combined indicators.csv` lists all of the indicators 
 in the UIS education statistics dataflow. The modules allow indicators to be
