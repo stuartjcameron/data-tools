@@ -13,11 +13,10 @@ I hope it will work with other SDMX APIs too but it is not yet tested.
 
 import inflection
 import requests
-from urllib.parse import urljoin
 import logging as lg
+from urllib.parse import urljoin
 from collections import defaultdict
 from sdmx_response import SdmxResponse
-lg.basicConfig(level=lg.DEBUG)
 
 
 class Filter(object):

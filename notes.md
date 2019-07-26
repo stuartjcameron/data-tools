@@ -1,10 +1,4 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Fri Jul 26 15:24:53 2019
-
-@author: https://github.com/stuartjcameron
-"""
-#Notes
+# Notes
 
 ## Notes on sdmx_api.py
 `dimension_at_observation="AllDimensions"` is usually needed but

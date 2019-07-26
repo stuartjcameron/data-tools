@@ -6,18 +6,14 @@ in the database.
 
 @author: https://github.com/stuartjcameron
 """
-import os
-import sdmx_api
-import string
-import re
-from sdmx_response import SdmxResponse
-from sdmx_response import METADATA
-from sdmx_response import cached_property
-
-#import translate_sdmx
 import csv
-from itertools import permutations, chain
+import os
+import re
 import logging as lg
+import string
+import sdmx_api
+from sdmx_response import SdmxResponse, METADATA, cached_property
+from itertools import permutations, chain
 try:
     from hdx.location.country import Country
 except ImportError:
@@ -58,13 +54,16 @@ NOT_SNAKE = re.compile(r"[^a-z0-9_]")
 NOT_UPPER_SNAKE = re.compile(r"[^A-Z0-9_]")
 NOT_CAMEL = re.compile(r"[^a-zA-Z0-9]")
 
+
 def is_snake(s):
     """ Lower case, contains underscore and only contains a-z, 0-9 and _ """
     return "_" in s and not NOT_SNAKE.search(s) 
 
+
 def is_upper_snake(s):
     """ Upper case, contains underscore and only contains A-Z, 0-9 and _ """
     return "_" in s and not NOT_UPPER_SNAKE.search(s)
+
 
 def is_camel_case(s):
     """ Mixed case and only contains a-z, A-Z, 0-9  """
@@ -242,8 +241,10 @@ class Response(SdmxResponse):
 def add_country_info_to_df(df, columns=None):
     return merge_df(df, get_country_df, on="REF_AREA", columns=columns)
     
+
 def add_indicator_info_to_df(df, columns=None):
     return merge_df(df, get_indicator_df, on="Indicator key", columns=columns)
+
 
 def merge_df(left, lookup_func, on, columns=None):
     """ Merge a dataframe with selected columns from a second dataset
@@ -267,8 +268,6 @@ def merge_df(left, lookup_func, on, columns=None):
     return df
 
 
-
-    
 class Indicator(object):
     """ 
     Get information on indicators in the UNESCO Institute of Statistics 
@@ -597,9 +596,6 @@ class Indicator(object):
         return 'uis.Indicator("{}")'.format(self.id)
 
 
-
-
-
 def clean_label(s):
     s = s.translate(UNPUNCTUATED).lower()
     return re.sub(' +', ' ', s)
@@ -617,6 +613,7 @@ def max_indices(it):
         elif n == highest:
             indices.append(i)
     return highest, indices
+
 
 def best_matches(a, L):
     """ Find most similar string in L to a 
@@ -649,8 +646,10 @@ def best_matches(a, L):
     lg.info("Matches by similarity: max {} matches {}".format(highest, matches[:50]))
     return matches
 
+
 def count_matching_words(a, b):
     return sum((word in b) for word in a)
+
     
 def matchingness(a, b):
     """ Return a tuple of the longest matched sequences from list or string a
@@ -682,6 +681,7 @@ def matchingness(a, b):
         b = b[:start_b] + b[start_b+length:]
     return tuple(r)
 
+
 def longest_matched_sequence(a, b):
     """ Finds longest sequence in a also found in b
     Returns the starting index of the sequence in a and the starting index
@@ -693,6 +693,7 @@ def longest_matched_sequence(a, b):
                 if a[start_a:start_a+length] == b[start_b:start_b+length]:
                     return start_a, start_b, length
     return None
+
 
 def loose_key_match(search_parts, key_parts):
     """ Test whether a list of search strings e.g. ["rofst", "f"] matches a key
@@ -720,6 +721,7 @@ def strict_key_match(search_parts, key_parts):
     
     return tuple(search_parts) in permutations(key_parts, len(search_parts))
 
+
 def get_root(short_key, all_short_keys):
     for ancestor in get_relations(short_key, all_short_keys, is_ancestor):
         if not has_ancestor(ancestor, all_short_keys):
@@ -729,6 +731,7 @@ def get_root(short_key, all_short_keys):
 def has_ancestor(short_key, all_short_keys):
     return any(True 
                for _ in get_relations(short_key, all_short_keys, is_ancestor))
+    
     
 def get_relations(short_key, all_short_keys, relation, reverse=False):
     """ Get all indicator short keys for which the relation function is True """
@@ -740,6 +743,7 @@ def get_relations(short_key, all_short_keys, relation, reverse=False):
         if predicate(other.split("-"), me):
             yield other
                 
+            
 def is_ancestor(a, b):
     """ Whether a is an ancestor of b, i.e. by disaggregating a one or more
     times you get b.
@@ -754,12 +758,14 @@ def is_parent(a, b):
     """ Whether a is a parent of b, i.e. by disaggregating a once you get b. """
     return is_ancestor(a, b) and len(set(b) - set(a)) == 1
   
+    
 def specs_match(incomplete_spec, indicator):
     """ Whether incomplete spec is a potential match for an indicator """
     for k, v in incomplete_spec.items():
         if v not in [None, "", indicator[k]]:
             return False
     return True
+
 
 def latest_by_country(df):
     group = ["Indicator key", "REF_AREA"]
