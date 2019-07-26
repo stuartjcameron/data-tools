@@ -29,7 +29,7 @@ print(disag_nara["metadata"]["indicators"])      # Indicator metadata
 countries = ['AF', 'AL', 'BD', 'BJ', 'BT', 'BF', 'BI', 'CV', 'KH', 'CM', 'CF', 'TD', 'KM', 'CD', 'CG', 'CI', 'DJ', 'DM', 'ER', 'ET', 'GM', 'GE', 'GH', 'GD', 'GN', 'GW', 'GY', 'HT', 'HN', 'KE', 'KI', 'KG', 'LA', 'LS', 'LR', 'MG', 'MW', 'ML', 'MH', 'MR', 'FM', 'MD', 'MN', 'MZ', 'MM', 'NP', 'NI', 'NE', 'NG', 'PK', 'PG', 'RW', 'LC', 'VC', 'ST', 'SN', 'SL', 'SO', 'SS', 'SD', 'TJ', 'TZ', 'TL', 'TG', 'UG', 'UZ', 'VU', 'VN', 'YE', 'ZM', 'ZW', 'TO', 'TV', 'WS', 'SB']
 out_of_school = api.query("ROFST.1.cp", by="sex", country=countries).dataframe
 latest = uis.latest_by_country(out_of_school)
-print(latest[latest["REF_AREA"] == "TZ"][["TIME_PERIOD", "SEX", "Value"]])
+print(latest[latest["REF_AREA"] == "TZ"][["Year", "SEX", "Value"]])
 
 # 4b. 2nd example of this
 countries = ['AF', 'AL', 'BD', 'BJ', 'BT', 'BF', 'BI', 'CV', 'KH', 'CM', 'CF', 'TD', 'KM', 'CD', 'CG', 'CI', 'DJ', 'DM', 'ER', 'ET', 'GM', 'GE', 'GH', 'GD', 'GN', 'GW', 'GY', 'HT', 'HN', 'KE', 'KI', 'KG', 'LA', 'LS', 'LR', 'MG', 'MW', 'ML', 'MH', 'MR', 'FM', 'MD', 'MN', 'MZ', 'MM', 'NP', 'NI', 'NE', 'NG', 'PK', 'PG', 'RW', 'LC', 'VC', 'ST', 'SN', 'SL', 'SO', 'SS', 'SD', 'TJ', 'TZ', 'TL', 'TG', 'UG', 'UZ', 'VU', 'VN', 'YE', 'ZM', 'ZW', 'TO', 'TV', 'WS', 'SB']
@@ -38,7 +38,7 @@ out_of_school = response.get_nested()
 print(out_of_school['ROFST.1.F.cp']["BD"])  # Female attendance rates in Bangladesh
 print(out_of_school["metadata"]["indicators"])      # Indicator metadata
 latest = uis.latest_by_country(response.dataframe)
-print(latest[latest["REF_AREA"] == "TZ"][["TIME_PERIOD", "SEX", "Value"]])
+print(latest[latest["REF_AREA"] == "TZ"][["Year", "SEX", "Value"]])
 
 # 5. Use fuzzy lookup to explore what indicators are available
 I = uis.Indicator
@@ -61,17 +61,10 @@ latest = uis.latest_by_country(oos_by_wealth)
 
 # Plot the latest for Tanzania
 tz = latest.query('REF_AREA == "TZ" and WEALTH_QUINTILE != "_T"')
-print("Data on {Indicator Label - EN} for {UN country name} ({Region}), {TIME_PERIOD}".format(**tz.iloc[0]))
+print("Data on {Indicator Label - EN} for {UN country name} ({Region}), {Year}".format(**tz.iloc[0]))
 tz.plot.bar(x="WEALTH_QUINTILE", y="Value")
 
 # Plot Tanzania and Kenya
-def formatted_column(dataframe, format_string):
-    """ Create a new string column using the format template and the other 
-        columns in each row
-    """
-    return dataframe.apply(lambda r: format_string.format(**r), axis=1)
-    
-latest["Country"] = formatted_column(latest, "{UN country name} ({TIME_PERIOD})")
 table = latest[latest["WEALTH_QUINTILE"] != "_T"]
 table = table.pivot(index="WEALTH_QUINTILE", columns="Country", values="Value")
 table.plot.bar()

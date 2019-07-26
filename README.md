@@ -5,7 +5,7 @@ Python 3 modules for accessing the [UNESCO Institute for Statistics](http://uis.
  to get international education statistics.
 
 
-Example usage (also see `uis_api-usage-eg.py`)
+Example usage (see `uis_api-usage-eg.py` for similar examples)
 
 1. Initialize the API
 ```
@@ -36,10 +36,14 @@ print(out_of_school["metadata"]["indicators"])
 
 ```
 
-4. Manipulate the data as a Pandas dataframe
+4. Manipulate the same data as a Pandas dataframe
 ```
-latest = uis.latest_by_country(response.dataframe)
-print(latest[latest["REF_AREA"] == "TZ"][["TIME_PERIOD", "SEX", "Value"]])
+df = response.dataframe   # using the same response as before
+print("\n\nOut of school rates by sex in Tanzania (latest) \n")
+latest = uis.latest_by_country(df)
+print(latest[latest["REF_AREA"] == "TZ"][["Year", "SEX", "Value"]])
+print("\n\nFemale out of school rates in Bangladesh\n")
+df[(df["REF_AREA"] == "BD") & (df["SEX"] == "F")].plot.line(x="Year", y="Value")
 
 ```
 
@@ -69,13 +73,13 @@ latest = uis.latest_by_country(oos_by_wealth)
 
 # Plot the latest for Tanzania
 tz = latest.query('REF_AREA == "TZ" and WEALTH_QUINTILE != "_T"')
-print("Data on {Indicator Label - EN} for {UN country name} ({Region}), {TIME_PERIOD}".format(**tz.iloc[0]))
+print("Data on {Indicator Label - EN} for {UN country name} ({Region}), {Year}".format(**tz.iloc[0]))
 tz.plot.bar(x="WEALTH_QUINTILE", y="Value")
 
 # Plot Tanzania and Kenya
 table = latest[latest["WEALTH_QUINTILE"] != "_T"]
 table = table.pivot(index="WEALTH_QUINTILE", 
-                    columns="UN country name", 
+                    columns="Country", 
                     values="Value")
 table.plot.bar()
 ```
@@ -97,5 +101,4 @@ referred to either by their Indicator ID (ROFST.1.cp), their "key" (e.g. ROFST.P
 The indicators list is based on the [indicator dictionary Excel sheet](http://uis.unesco.org/sites/default/files/documents/uis-data-dictionary-education-statistics.xlsx) 
 (downloaded June 2019 - it may need to be updated). The list was cleaned
 by checking which indicators were actually found in the API.
-
 

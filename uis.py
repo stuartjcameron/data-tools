@@ -4,6 +4,9 @@ Access the UNESCO Institute of Statistics SDMX API, download data
 in a convenient format, and find information on indicators that are available
 in the database.
 
+TODO: write a helper function for filtering dataframes the same way that
+the API query can be filtered, e.g. query_df(df, ref_area=["BD", "TZ"], sex="F")
+
 @author: https://github.com/stuartjcameron
 """
 import csv
@@ -232,6 +235,7 @@ class Response(SdmxResponse):
                 'Table query', 
                 'Theme'
                 ])
+        df["Year"] = df["TIME_PERIOD"].astype("int")
         #df.rename(columns=header_case, inplace=True)
         return df
     
@@ -768,8 +772,19 @@ def specs_match(incomplete_spec, indicator):
 
 
 def latest_by_country(df):
+    """
+    Find the latest data point by country in a dataframe from UIS API
+    Also adds a 'country' column with the country name and the year of the latest
+    data.
+    """    
     group = ["Indicator key", "REF_AREA"]
-    return df.sort_values(by="TIME_PERIOD").groupby(group, as_index=False).last()
+    df = df.sort_values(by="TIME_PERIOD").groupby(group, as_index=False).last()
+    df["Country"] = formatted_column(df, "{UN country name} ({Year})")
+    return df
     
+def formatted_column(dataframe, format_string):
+    """ Create a new string column using the format template and the other 
+        columns in each row
+    """
+    return dataframe.apply(lambda r: format_string.format(**r), axis=1)
     
-   
