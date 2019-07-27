@@ -11,7 +11,7 @@ I hope it will work with other SDMX APIs too but it is not yet tested.
 @author: https://github.com/stuartjcameron
 """
 
-import string as inflection
+import inflection
 import requests
 import logging as lg
 from urllib.parse import urljoin
@@ -83,6 +83,10 @@ class Filter(object):
 
 
 class Api(object):
+    """
+    
+    
+    """
     def __init__(self, base, subscription_key, dimensions=None):
         self.base = base
         if base[-1] != "/":
