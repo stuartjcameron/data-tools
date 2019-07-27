@@ -11,7 +11,7 @@ I hope it will work with other SDMX APIs too but it is not yet tested.
 @author: https://github.com/stuartjcameron
 """
 
-import inflection
+import string as inflection
 import requests
 import logging as lg
 from urllib.parse import urljoin
@@ -80,45 +80,6 @@ class Filter(object):
     def key_to_dict_old(self, key, ind=True):
         """ Returns a dict based on an SDMX key """
         return self.extract_dims(dict((zip(self.all_dims, key.split(".")))))
-    
-def combine_queries(*query_dicts):
-    """
-    Combine dicts representing indicators or queries into a 
-    single dict with multiple values.
-    Note this can 'over-query', i.e. return too many results if there
-    is too much difference between the queries. 
-    """
-    r = defaultdict(set)
-    for d in query_dicts:
-        for key, value in d.items():
-            if type(value) is list:
-                r[key] |= set(value)
-            else:
-                r[key].add(value)
-    return {k: list(v) for k, v in r.items()}
- 
-def value_to_filter_string(v):
-    """ 
-    Convert None, a number, string or list into a string for 
-    inclusion in an SDMX filter string
-    """
-    if v is None:
-        return ""
-    elif type(v) == list:
-        return "+".join(v)
-    else:
-        return str(v)
-
-def camel(k):
-    """ 
-    Appropriately camelize a keyword argument key for inclusion in 
-    an SDMX URL query 
-    e.g. start_period => startPeriod 
-    """
-    return inflection.camelize(k, uppercase_first_letter=False)
-
-
-
 
 
 class Api(object):
@@ -216,3 +177,39 @@ class Api(object):
         else:
             yield determined
         
+
+def combine_queries(*query_dicts):
+    """
+    Combine dicts representing indicators or queries into a 
+    single dict with multiple values.
+    Note this can 'over-query', i.e. return too many results if there
+    is too much difference between the queries. 
+    """
+    r = defaultdict(set)
+    for d in query_dicts:
+        for key, value in d.items():
+            if type(value) is list:
+                r[key] |= set(value)
+            else:
+                r[key].add(value)
+    return {k: list(v) for k, v in r.items()}
+ 
+def value_to_filter_string(v):
+    """ 
+    Convert None, a number, string or list into a string for 
+    inclusion in an SDMX filter string
+    """
+    if v is None:
+        return ""
+    elif type(v) == list:
+        return "+".join(v)
+    else:
+        return str(v)
+
+def camel(k):
+    """ 
+    Appropriately camelize a keyword argument key for inclusion in 
+    an SDMX URL query 
+    e.g. start_period => startPeriod 
+    """
+    return inflection.camelize(k, uppercase_first_letter=False)
