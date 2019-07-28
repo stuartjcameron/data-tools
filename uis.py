@@ -149,6 +149,72 @@ def get_country_df(columns=None):
     return df
 
 
+class allbut(object):
+    """
+    Set-like class to represent all but the listed members
+    e.g. [1,2,3,4] - allbut(1, 2) will return [3, 4]
+    """    
+    def __init__(self, *args):
+        self.members = set(args)
+    
+    def __rsub__(self, other):
+        return list(set(other) - self.members)
+        
+def get_filters(df, filter_dict):
+    """ 
+    Generate filter columns based on a dictionary of column names
+    and values
+    Values can be individual strings/values, lists, or instances of allbut
+    """    
+    def transform1(heading):
+        if isinstance(heading, str):
+            return heading.lower()
+        else:
+            return heading
+        
+    def transform2(heading):
+        if isinstance(heading, str):
+            return re.sub("[^a-z0-9]", " ", heading.lower())
+        else:
+            return heading
+    
+    funcs = [transform1, transform2]
+    altered_columns = [(f, {f(h): h for h in df.columns}) for f in funcs]
+    for k, v in filter_dict.items():
+        if k not in df.columns:
+            for transform, headings in altered_columns:
+                if k in headings:
+                    k = headings[k]
+                    break
+            else:
+                raise KeyError("Keyword {} not found in dataset".format(k))
+        if isinstance(v, list):
+            yield df[k].isin(v)
+        elif isinstance(v, allbut):
+            yield ~df[k].isin(v.members)
+        else:
+            yield df[k] == v   
+    
+def filter_df(df, **kwargs):
+    """
+    Convenience filter for dataframes
+    Allows slightly fuzzy matching to column headings e.g. 'stat_unit'
+    will match 'STAT_UNIT' or 'Stat. Unit' if an exact match isn't found
+    """
+    import pandas as pd
+    return df[pd.DataFrame(get_filters(df, kwargs)).all()]
+
+def drop_redundant_cols(df):
+    """
+    Remove all columns which are all the same
+    Returns the values of those columns and the remaining df
+    Taken from https://stackoverflow.com/a/39658662/567595
+    """
+    import pandas as pd
+    nunique = df.apply(pd.Series.nunique)
+    cols_to_drop = nunique[nunique == 1].index
+    return df[cols_to_drop].iloc[0], df.drop(cols_to_drop, axis=1)            
+    
 
 class Api(sdmx_api.Api):
     """ 

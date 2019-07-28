@@ -44,7 +44,6 @@ latest = uis.latest_by_country(df)
 print(latest[latest["REF_AREA"] == "TZ"][["Year", "SEX", "Value"]])
 print("\n\nFemale out of school rates in Bangladesh\n")
 df[(df["REF_AREA"] == "BD") & (df["SEX"] == "F")].plot.line(x="Year", y="Value")
-
 ```
 
 5. Use fuzzy lookup to explore what indicators are available
