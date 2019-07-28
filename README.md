@@ -113,6 +113,7 @@ see above.
 ### License
 
 data-tools - tools for accessing education statistics from the UNESCO Institute of Statistics API
+
 Copyright (C) 2019 Stuart Cameron
 
 This program is free software: you can redistribute it and/or modify
@@ -125,4 +126,4 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
-A copy of the GNU General Public License is [included with this program](https://github.com/stuartjcameron/data-tools/blob/starting-up/LICENSE.txt)
+A copy of the GNU General Public License is [included with this program](https://github.com/stuartjcameron/data-tools/blob/starting-up/LICENSE.txt).
