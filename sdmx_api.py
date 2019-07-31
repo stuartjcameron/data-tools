@@ -218,5 +218,5 @@ def camel(k):
     
     (Taken from inflection package)
     """
-    return k[0].lower() + re.sub(r"(?:^|_)(.)", lambda m: m.group(1).upper(), k[1:])
+    return k[0].lower() + re.sub(r"(?:^|_)(.)", lambda m: m.group(1).upper(), k)[1:]
     #return inflection.camelize(k, uppercase_first_letter=False)
