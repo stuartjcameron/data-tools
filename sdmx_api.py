@@ -11,7 +11,7 @@ I hope it will work with other SDMX APIs too but it is not yet tested.
 @author: https://github.com/stuartjcameron
 """
 
-import inflection
+import re
 import requests
 import logging as lg
 from urllib.parse import urljoin
@@ -215,5 +215,8 @@ def camel(k):
     Appropriately camelize a keyword argument key for inclusion in 
     an SDMX URL query 
     e.g. start_period => startPeriod 
+    
+    (Taken from inflection package)
     """
-    return inflection.camelize(k, uppercase_first_letter=False)
+    return k[0].lower() + re.sub(r"(?:^|_)(.)", lambda m: m.group(1).upper(), k[1:])
+    #return inflection.camelize(k, uppercase_first_letter=False)
