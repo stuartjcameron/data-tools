@@ -104,7 +104,6 @@ by checking which indicators were actually found in the API.
 ### Dependencies
 
 * [requests](https://pypi.org/project/requests/) - needed to fetch queries
-* [inflection](https://pypi.org/project/inflection/)
 * (optional) [pandas](https://pandas.pydata.org/) - you can still fetch queries without it,
 but pandas must be installed if you want to manipulate the data as a dataframe
 * (optional) [HDX Python Country Library](https://pypi.org/project/hdx-python-country/) -
