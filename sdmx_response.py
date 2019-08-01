@@ -304,4 +304,15 @@ class SdmxResponse(object):
         return r
 
 
-
+def nested_to_df(top):
+    """ Convert nested dictionaries in the indicator: {country: {year: value}}
+        format to a vertical format pandas dataframe
+    """
+    import pandas as pd
+    def gen():        
+        for indicator, middle in top.items():
+            for country, bottom in middle.items():
+                for year, value in bottom.items():
+                    yield [indicator, country, year, value, float(value)]
+    
+    return pd.DataFrame.from_records(gen(), columns=["Indicator", "Country", "Year", "Value (string)", "Value"])                
