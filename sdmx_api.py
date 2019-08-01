@@ -118,13 +118,13 @@ class Api(object):
             return response
         
     
-    def query(self, **kwargs):
+    def query(self, data_format=None, **kwargs):
         """ Convenience function for querying the API. Accepts any parameter
         that can filter the query, and passes the remainder as parameters to 
         the API request.
         """
         spec, remainder = self.filter.extract_dims_and_remainder(kwargs, False)
-        return self.get(spec, remainder)
+        return self.get(spec, remainder, data_format)
         
         
     def get_dimension_information(self, spec=None):

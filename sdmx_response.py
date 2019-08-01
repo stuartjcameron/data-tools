@@ -76,6 +76,24 @@ class SdmxCsvResponse(object):
     #TODO: write this
     def __init__(self, response):
         self.response = response
+        self.message = response.text
+        
+    @cached_property
+    def data(self):
+        from io import StringIO
+        import csv
+        reader = csv.reader(StringIO(self.response.text))
+        return list(list(row) for row in reader)
+        
+    @cached_property
+    def dataframe(self):
+        import pandas as pd
+        from io import StringIO
+        return pd.read_csv(StringIO(self.response.text))
+    
+    def save(self, file):
+        with open(file, "w") as f:
+            f.write(self.response.text)
 
 class SdmxJsonResponse(object):
     def __init__(self, response):

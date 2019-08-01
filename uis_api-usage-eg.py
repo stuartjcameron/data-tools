@@ -11,7 +11,7 @@ import my_uis_api_key           # put your key in this module to make it work
 
 # 1. Initialize the API
 api = uis.Api(my_uis_api_key.key)
-#api.verification = False   # DON'T DO THIS - not secure (but may be needed in some environments)
+api.verification = False   # DON'T DO THIS - not secure (but may be needed in some environments)
 
 # 2. Get data by UIS key using quick_query
 response = api.query("nara.1") 

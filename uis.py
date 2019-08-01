@@ -201,7 +201,8 @@ class Api(sdmx_api.Api):
         
     def query(self, ind=None, country=None, start=None, end=None,
                     by=None, disag_only=False, 
-                    use_live_country_info=False, **kwargs):
+                    use_live_country_info=False, 
+                    data_format=None, **kwargs):
         if ind:
             query = Indicator.query(lookup=ind, by=by, disag_only=disag_only)
             looked_up = sdmx_api.combine_queries(*[ind.spec for ind in query])
@@ -219,7 +220,9 @@ class Api(sdmx_api.Api):
             query["start_period"] = start
         if end:
             query["end_period"] = end
-        return self.super.query(dimension_at_observation="AllDimensions", **query)
+        return self.super.query(data_format=data_format, 
+                                dimension_at_observation="AllDimensions", 
+                                **query)
         #response.set_structure(ref_area="REF_AREA", time_period="TIME_PERIOD")
         #return response
     
