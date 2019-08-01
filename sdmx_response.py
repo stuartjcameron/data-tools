@@ -71,7 +71,13 @@ class NoDataException(Exception):
 
 METADATA = Flag("Metadata", "DIMENSIONS ATTRIBUTES ATTRIBUTE_DESCRIPTIONS EXCEPTIONS")
 
-class SdmxResponse(object):
+  
+class SdmxCsvResponse(object):
+    #TODO: write this
+    def __init__(self, response):
+        self.response = response
+
+class SdmxJsonResponse(object):
     def __init__(self, response):
         self.response = response
         self.message = response.json()
@@ -304,15 +310,24 @@ class SdmxResponse(object):
         return r
 
 
-def nested_to_df(top):
+def nested_to_tuples(top):
+    """ Generator that flattens nested dictionaries in the 
+        indicator: {country: {year: value}} format to 
+        (indicator, country, year, value) tuples
+    """    
+    for indicator, middle in top.items():
+        for country, bottom in middle.items():
+            for year, value in bottom.items():
+                yield indicator, country, year, value
+
+
+def nested_to_df(nested):
     """ Convert nested dictionaries in the indicator: {country: {year: value}}
         format to a vertical format pandas dataframe
     """
     import pandas as pd
-    def gen():        
-        for indicator, middle in top.items():
-            for country, bottom in middle.items():
-                for year, value in bottom.items():
-                    yield [indicator, country, year, value, float(value)]
-    
-    return pd.DataFrame.from_records(gen(), columns=["Indicator", "Country", "Year", "Value (string)", "Value"])                
+    columns = ["Indicator", "Country", "Year", "Value as string"]
+    r = pd.DataFrame.from_records(nested_to_tuples(nested), columns=columns)
+    r["Value"] = pd.to_numeric(r["Value as string"])
+    return r
+

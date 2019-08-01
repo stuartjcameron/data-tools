@@ -16,7 +16,7 @@ import logging as lg
 from urllib.parse import urljoin
 from collections import defaultdict
 
-from sdmx_response import SdmxResponse
+from sdmx_response import SdmxJsonResponse, SdmxCsvResponse
 from string_utils import camel
 
 class Filter(object):
@@ -95,10 +95,11 @@ class Api(object):
         if dimensions:
             self.filter = Filter(dimensions)
         self.verification = True
-        self.process_response = SdmxResponse
+        self.process_response = {"sdmx-json": SdmxJsonResponse,
+                                 "csv": SdmxCsvResponse}
 
         
-    def get(self, spec=None, params=None):
+    def get(self, spec=None, params=None, data_format="sdmx-json"):
         """ Forms a URL from the filter specification and submits a request
         to the API using the specified parameters. Returns a message in json
         format. """
@@ -106,11 +107,16 @@ class Api(object):
             params = {}
         url = urljoin(self.base, self.filter.dict_to_key(spec, False))
         params = {camel(k): v for k, v in params.items()}
-        params["format"] = "sdmx-json"
+        params["format"] = data_format
+        self.format = data_format
         params["subscription-key"] = self.subscription_key
         lg.info("Api.get \nurl:%s \nparams:%s", url, params)
         response = requests.get(url, params=params, verify=self.verification)
-        return self.process_response(response)
+        if data_format in self.process_response:
+            return self.process_response[data_format](response)
+        else:
+            return response
+        
     
     def query(self, **kwargs):
         """ Convenience function for querying the API. Accepts any parameter
