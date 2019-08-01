@@ -222,29 +222,6 @@ class Api(sdmx_api.Api):
         return self.super.query(dimension_at_observation="AllDimensions", **query)
         #response.set_structure(ref_area="REF_AREA", time_period="TIME_PERIOD")
         #return response
-        
-        
-    def query_csv(self, ind=None, country=None, start=None, end=None,
-                    by=None, disag_only=False, 
-                    use_live_country_info=False, **kwargs):
-        if ind:
-            query = Indicator.query(lookup=ind, by=by, disag_only=disag_only)
-            looked_up = sdmx_api.combine_queries(*[ind.spec for ind in query])
-            if not looked_up:
-                raise KeyError("Indicator {} not found".format(ind))
-            query = {**kwargs, **looked_up}
-        else:
-            query = kwargs
-        if country:
-            if type(country) is not list:
-                country = [country]
-            query["ref_area"] = [get_iso2(s, use_live=use_live_country_info) 
-                                for s in country]
-        if start:
-            query["start_period"] = start
-        if end:
-            query["end_period"] = end
-        return self.super.query(dimension_at_observation="AllDimensions", **query)
     
 
 class CsvResponse(SdmxCsvResponse):
