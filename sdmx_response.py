@@ -73,7 +73,6 @@ METADATA = Flag("Metadata", "DIMENSIONS ATTRIBUTES ATTRIBUTE_DESCRIPTIONS EXCEPT
 
   
 class SdmxCsvResponse(object):
-    #TODO: write this
     def __init__(self, response):
         self.response = response
         self.message = response.text
@@ -89,8 +88,28 @@ class SdmxCsvResponse(object):
     def dataframe(self):
         import pandas as pd
         from io import StringIO
-        return pd.read_csv(StringIO(self.response.text))
-    
+        r = pd.read_csv(StringIO(self.response.text))
+        # TODO: need to get dimension_ids (dimensions including
+        # country, time) and self.indicator_dimensions (all dimensions
+        # except country, time) in order to add Key and Indicator Key
+        # to the dataframe.
+        #r["Key"] = r[dimension_ids].apply(".".join, axis=1)
+        #if self.structured:
+        #    r["Indicator key"] = r[self.indicator_dimensions].apply(".".join, axis=1)
+        return r
+        
+    def set_structure(self, ref_area="REF_AREA", time_period="TIME_PERIOD"):
+        """ Set a structure such that all dimensions other than 
+        ref_area and time_period will be treated as aspects of an indicator. """
+        self.ref_area = ref_area
+        self.time_period = time_period
+        self.structured = True
+        # TODO: need to get the indicator dimensions from
+        # somewhere.
+        
+        #self.indicator_dimensions = [d["id"] for d in self.dimensions
+        #                             if not d["id"] in [self.ref_area, self.time_period]]
+
     def save(self, file):
         with open(file, "w") as f:
             f.write(self.response.text)

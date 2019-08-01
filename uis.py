@@ -228,8 +228,22 @@ class Api(sdmx_api.Api):
     
 
 class CsvResponse(SdmxCsvResponse):
-    #TODO: write this
-    pass
+    def __init__(self, response):
+        self.super = super()
+        self.super.__init__(response)
+        self.set_structure(ref_area="REF_AREA", time_period="TIME_PERIOD")
+    
+    @cached_property
+    def dataframe(self):
+        #TODO: consider adding indicator information to the dataframe too
+        df = self.super.dataframe
+        df = add_country_info_to_df(df, {
+            "#country+name+preferred": "Country name",
+            "#country+alt+i_en+name+v_unterm": "UN country name",
+            "#region+name+preferred+sub": "Region"                
+            })
+        return df
+        
 
 
 class JsonResponse(SdmxJsonResponse):
@@ -244,7 +258,16 @@ class JsonResponse(SdmxJsonResponse):
         self.super.__init__(response)
         self.set_structure(ref_area="REF_AREA", time_period="TIME_PERIOD")
         
-    def get_nested(self, metadata=METADATA.ALL):
+    def get_nested(self, metadata=METADATA.ALL, use_uis_ids=True):
+        """ Return the data in a convenient nested format
+        {indicator: {country: {year: value}}..., metadata: {}}
+        
+        By default all metadata will be included.
+        metadata=None will only return the data.
+        
+        If use_uis_ids=True then UIS indicator IDs will be returned
+        Otherwise indicators will be identified using SDMX keys.
+        """
         def adjust_key(k):
             if k != "metadata":
                 try:
@@ -254,21 +277,23 @@ class JsonResponse(SdmxJsonResponse):
             return k
         
         r = self.super.get_nested(metadata)
-        r = {adjust_key(k): v for k, v in r.items()}
-        if metadata:
-            m = r["metadata"]
-            if "indicators" in m:
-                m["indicators"] = {adjust_key(k): v for k, v in m["indicators"].items()}
+        if use_uis_ids:
+            r = {adjust_key(k): v for k, v in r.items()}
+            if metadata:
+                m = r["metadata"]
+                if "indicators" in m:
+                    m["indicators"] = {adjust_key(k): v
+                         for k, v in m["indicators"].items()}
         return r
     
     @cached_property
     def dataframe(self):
         df = self.super.dataframe
         df = add_country_info_to_df(df, {
-                "#country+name+preferred": "Country name",
-                "#country+alt+i_en+name+v_unterm": "UN country name",
-                "#region+name+preferred+sub": "Region"                
-                })
+            "#country+name+preferred": "Country name",
+            "#country+alt+i_en+name+v_unterm": "UN country name",
+            "#region+name+preferred+sub": "Region"                
+            })
         df = add_indicator_info_to_df(df, [
                 'Indicator Label - EN', 
                 'Indicator Section', 
@@ -278,8 +303,7 @@ class JsonResponse(SdmxJsonResponse):
         df["Year"] = df["TIME_PERIOD"].astype("int")
         #df.rename(columns=header_case, inplace=True)
         return df
-    
-        
+   
 
         
 def add_country_info_to_df(df, columns=None):
