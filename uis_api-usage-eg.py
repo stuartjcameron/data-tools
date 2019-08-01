@@ -10,7 +10,7 @@ import uis
 import my_uis_api_key           # put your key in this module to make it work
 
 # 1. Initialize the API
-api = uis.Api(my_uis_api_key.key)
+api = uis.api(subscription_key=my_uis_api_key.key)
 api.verification = False   # not secure but sometimes needed...
 
 # 2. Get data by UIS key using quick_query

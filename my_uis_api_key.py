@@ -9,7 +9,7 @@ quotation marks below, then you can import it into other code using
 
 import uis
 import my_uis_api_key
-api = uis.api(key=)
+api = uis.api(subscription_key=my_uis_api_key.key)
 
 
 @author: https://github.com/stuartjcameron
