@@ -11,13 +11,13 @@ I hope it will work with other SDMX APIs too but it is not yet tested.
 @author: https://github.com/stuartjcameron
 """
 
-import re
 import requests
 import logging as lg
 from urllib.parse import urljoin
 from collections import defaultdict
-from sdmx_response import SdmxResponse
 
+from sdmx_response import SdmxResponse
+from string_utils import camel
 
 class Filter(object):
     """ Class for managing the dimensions that make up an SDMX 'indicator',
@@ -209,14 +209,3 @@ def value_to_filter_string(v):
         return "+".join(v)
     else:
         return str(v)
-
-def camel(k):
-    """ 
-    Appropriately camelize a keyword argument key for inclusion in 
-    an SDMX URL query 
-    e.g. start_period => startPeriod 
-    
-    (Taken from inflection package)
-    """
-    return k[0].lower() + re.sub(r"(?:^|_)(.)", lambda m: m.group(1).upper(), k)[1:]
-    #return inflection.camelize(k, uppercase_first_letter=False)

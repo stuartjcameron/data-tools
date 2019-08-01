@@ -7,9 +7,10 @@ Institute for Statistics database to get education data.
 """
 
 import uis
+import my_uis_api_key           # put your key in this module to make it work
+
 # 1. Initialize the API
-#subscription_key = "your-key-here"
-api = uis.Api(subscription_key)
+api = uis.Api(my_uis_api_key.key)
 api.verification = False   # not secure but sometimes needed...
 
 # 2. Get data by UIS key using quick_query

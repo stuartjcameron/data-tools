@@ -11,18 +11,18 @@ the API query can be filtered, e.g. query_df(df, ref_area=["BD", "TZ"], sex="F")
 """
 import csv
 import os
-import re
 import logging as lg
-import string
+from itertools import permutations, chain
+
+import string_utils
 import sdmx_api
 from sdmx_response import SdmxResponse, METADATA, cached_property
-from itertools import permutations, chain
+
 try:
     from hdx.location.country import Country
 except ImportError:
     pass
 
-UNPUNCTUATED = str.maketrans(string.punctuation, ' '*len(string.punctuation))
 UIS_BASE = "https://api.uis.unesco.org/sdmx/data/UNESCO,EDU_NON_FINANCE,3.0"
 UIS_DIMENSIONS = [
            "STAT_UNIT",
@@ -52,42 +52,7 @@ lg.info("CWD={}; file path={}".format(os.getcwd(), os.path.dirname(__file__)))
 INDICATOR_DATA = os.path.join(os.path.dirname(__file__), "input-data/combined indicators.csv")
 uis_filter = sdmx_api.Filter(UIS_DIMENSIONS)
 
-# Regexes (can be improved but good enough!)
-NOT_SNAKE = re.compile(r"[^a-z0-9_]")  
-NOT_UPPER_SNAKE = re.compile(r"[^A-Z0-9_]")
-NOT_CAMEL = re.compile(r"[^a-zA-Z0-9]")
 
-
-def is_snake(s):
-    """ Lower case, contains underscore and only contains a-z, 0-9 and _ """
-    return "_" in s and not NOT_SNAKE.search(s) 
-
-
-def is_upper_snake(s):
-    """ Upper case, contains underscore and only contains A-Z, 0-9 and _ """
-    return "_" in s and not NOT_UPPER_SNAKE.search(s)
-
-
-def is_camel_case(s):
-    """ Mixed case and only contains a-z, A-Z, 0-9  """
-    return not(s.islower() or s.isupper() or NOT_CAMEL.search(s))
-
-        
-def header_case(s):
-    """ 
-    Convert snake_case, CAPS_SNAKE_CASE, Title Case, all lower, all upper,
-    and CamelCase to Sentence case
-    Other mixed strings (e.g. "UN country name") will be left as is, to preserve
-    acronyms
-    """
-    if is_snake(s) or is_upper_snake(s):
-        return s.replace("_", " ").capitalize()
-    elif is_camel_case(s):
-        r = re.sub(r"[A-Z]", lambda matched: " " + matched.group(0), s)
-        return r.strip().capitalize()
-    elif s.istitle() or s.islower() or s.isupper():
-        return s.capitalize()
-    return s
 
 
 def get_iso2(s, use_live=False):
@@ -174,7 +139,7 @@ def get_filters(df, filter_dict):
         
     def transform2(heading):
         if isinstance(heading, str):
-            return re.sub("[^a-z0-9]", " ", heading.lower())
+            return string_utils.clean_label(heading)
         else:
             return heading
     
@@ -511,7 +476,7 @@ class Indicator(object):
                 
         # Then look for a label match
         lg.info("Trying a label match")
-        clean_labels = [clean_label(k) for k in cls.keys["label"]]
+        clean_labels = [string_utils.clean_label(k) for k in cls.keys["label"]]
         indices = best_matches(s, clean_labels)
         r = interpret_indices(indices)
         if r:
@@ -666,10 +631,7 @@ class Indicator(object):
         return 'uis.Indicator("{}")'.format(self.id)
 
 
-def clean_label(s):
-    s = s.translate(UNPUNCTUATED).lower()
-    return re.sub(' +', ' ', s)
-    
+
 
 def max_indices(it):
     """ Return the max and the indices of the maxima in an iterable.
