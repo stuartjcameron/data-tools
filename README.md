@@ -83,10 +83,16 @@ table = table.pivot(index="WEALTH_QUINTILE",
 table.plot.bar()
 ```
 
+## Installation
+
+There is no package for the modules yet. Install by downloading the files into your working directory. You will need to have installed [requests](https://pypi.org/project/requests/) (see Dependencies below).
+
 ## Notes
 
 These modules are provided with no guarantee of safety or functionality. 
 The author does not work for UNESCO Institute for Statistics.
+
+There is no package for the modules yet. Install by downloading the files into your working directory.
 
 The modules use the [HDX Python Country Library](https://pypi.org/project/hdx-python-country/)
 to look up country names. It uses fuzzy look-up so "Tanzania", "TZ" etc. are acceptable.
