@@ -85,7 +85,7 @@ table.plot.bar()
 
 ## Installation
 
-There is no package for the modules yet. Install by downloading the files into your working directory. You will need to have installed [requests](https://pypi.org/project/requests/) (see Dependencies below).
+There is no package for these modules yet. Install by downloading the files into your working directory or [user site directory](https://stackoverflow.com/a/16196400/567595). You will need to have installed [requests](https://pypi.org/project/requests/) (see Dependencies below).
 
 ## Notes
 
