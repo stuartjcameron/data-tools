@@ -3,6 +3,9 @@
 Class for conveniently extracting information from an SDMX request response object
 and raising helpful error messages when the information isn't there.
 
+NOTE  this may sometimes convert other string values to NaN
+However the string values are generally preserved in the dataset
+
 @author: https://github.com/stuartjcameron
 """
 from collections import defaultdict, Counter
@@ -180,7 +183,7 @@ class SdmxResponse(object):
         columns = dimension_ids + ["Value as string"] + attribute_ids
         data = (key_to_list(k) + v for k, v in self.data.items())
         r = pd.DataFrame(data=data, columns=columns)
-        r["Value"] = pd.to_numeric(r["Value as string"])
+        r["Value"] = pd.to_numeric(r["Value as string"], errors="coerce")
         
         # Replace dimension and attribute numbers with the relevant ID / name
         for column, series in maps.items():
